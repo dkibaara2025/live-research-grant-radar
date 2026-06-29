@@ -1,5 +1,6 @@
 import type { DataMode, RankedOpportunity, ResearchProfile } from "@/lib/agent/types";
 import { buildPlanExportTitle } from "@/lib/export/plan";
+import { getOpportunityDisplayLinks } from "@/lib/funding/display-links";
 
 type ActionPlanPanelProps = {
   opportunity: RankedOpportunity;
@@ -38,6 +39,7 @@ export function ActionPlanPanel({
     opportunity.nextSevenDayPlan?.length > 0
       ? opportunity.nextSevenDayPlan
       : opportunity.actionPlan;
+  const links = getOpportunityDisplayLinks(opportunity);
 
   function exportPdf() {
     const originalTitle = document.title;
@@ -82,43 +84,43 @@ export function ActionPlanPanel({
           <div className="source-details">
             <span>Source</span>
             <strong>
-              {opportunity.sourceName} ({opportunity.sourceType})
+              {links.sourceName} ({links.sourceType})
             </strong>
             <span>Source URL</span>
-            {opportunity.sourceUrl ? (
+            {links.sourceUrl ? (
               <a
                 className="plain-link"
-                href={opportunity.sourceUrl}
+                href={links.sourceUrl}
                 target="_blank"
                 rel="noreferrer"
               >
-                {opportunity.sourceUrl}
+                {links.sourceLabel ?? links.sourceUrl}
               </a>
             ) : (
               <strong>Needs verification</strong>
             )}
             <span>Original call</span>
-            {opportunity.callUrl && opportunity.callUrl !== "missing" ? (
+            {links.callUrl ? (
               <a
                 className="plain-link"
-                href={opportunity.callUrl}
+                href={links.callUrl}
                 target="_blank"
                 rel="noreferrer"
               >
-                {opportunity.callUrl}
+                {links.callUrl}
               </a>
             ) : (
               <strong>Call link missing - needs verification</strong>
             )}
             <span>Application</span>
-            {opportunity.applicationUrl && opportunity.applicationUrl !== "missing" ? (
+            {links.applicationUrl ? (
               <a
                 className="plain-link"
-                href={opportunity.applicationUrl}
+                href={links.applicationUrl}
                 target="_blank"
                 rel="noreferrer"
               >
-                {opportunity.applicationUrl}
+                {links.applicationUrl}
               </a>
             ) : (
               <strong>Use original call page or verify submission route.</strong>

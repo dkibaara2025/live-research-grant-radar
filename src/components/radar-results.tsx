@@ -1,4 +1,5 @@
 import type { AgentWarning, DataMode, RankedOpportunity } from "@/lib/agent/types";
+import { getOpportunityDisplayLinks } from "@/lib/funding/display-links";
 
 type RadarResultsProps = {
   opportunities: RankedOpportunity[];
@@ -36,9 +37,8 @@ export function RadarResults({
       <div className="result-list">
         {opportunities.map((opportunity) => {
           const isSelected = opportunity.id === selectedId;
-
-          const hasCallLink =
-            opportunity.callUrl && opportunity.callUrl !== "missing";
+          const links = getOpportunityDisplayLinks(opportunity);
+          const hasCallLink = Boolean(links.callUrl);
 
           return (
             <div
@@ -59,8 +59,8 @@ export function RadarResults({
                     {opportunity.amount}
                   </span>
                   <span className="result-source">
-                    {opportunity.sourceName} / {opportunity.sourceType}
-                    {opportunity.sourceUrl ? ` / ${opportunity.sourceUrl}` : ""}
+                    {links.sourceName} / {links.sourceType}
+                    {links.sourceLabel ? ` / ${links.sourceLabel}` : ""}
                   </span>
                   <span className="tag-row">
                     {opportunity.tags.map((tag) => (
@@ -77,7 +77,7 @@ export function RadarResults({
               {hasCallLink ? (
                 <a
                   className="open-call-link"
-                  href={opportunity.callUrl}
+                  href={links.callUrl}
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -88,12 +88,11 @@ export function RadarResults({
                   Call link missing - needs verification
                 </span>
               )}
-              {opportunity.applicationUrl &&
-              opportunity.applicationUrl !== "missing" &&
-              opportunity.applicationUrl !== opportunity.callUrl ? (
+              {links.applicationUrl &&
+              links.applicationUrl !== links.callUrl ? (
                 <a
                   className="open-call-link secondary"
-                  href={opportunity.applicationUrl}
+                  href={links.applicationUrl}
                   target="_blank"
                   rel="noreferrer"
                 >
