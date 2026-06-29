@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type AdminTab = "opportunities" | "team" | "proposals" | "sources" | "health";
 
@@ -21,18 +21,27 @@ type ManualOpportunityRow = {
 
 type TeamRow = {
   id: string;
-  name: string;
-  role: string;
-  scholarUrl?: string;
-  affiliation?: string;
-  expertise: string[];
-  methods: string[];
-  geographies: string[];
+  fullName: string;
+  preferredRole: string;
+  institution?: string;
+  department?: string;
+  country?: string;
+  region?: string;
+  email?: string;
+  googleScholarUrl?: string;
+  orcidUrl?: string;
+  personalWebsiteUrl?: string;
+  expertiseKeywords: string[];
+  domainExpertise: string[];
+  methodsExpertise: string[];
+  geographicExperience: string[];
   careerStage: string;
-  leadershipStrength: string;
-  publicationHighlights: string;
-  implementationExperience: string;
-  availability: string;
+  shortBio?: string;
+  publicationSummary?: string;
+  selectedPublications: string[];
+  hIndex?: number;
+  citationCount?: number;
+  notes?: string;
 };
 
 type ProposalRow = {
@@ -76,19 +85,27 @@ const emptyOpportunity = {
 };
 
 const emptyTeam = {
-  name: "",
-  role: "",
+  fullName: "",
+  preferredRole: "PI",
+  institution: "",
+  department: "",
+  country: "",
+  region: "",
   email: "",
-  scholarUrl: "",
-  affiliation: "",
-  expertise: "",
-  methods: "",
-  geographies: "",
-  careerStage: "",
-  leadershipStrength: "",
-  publicationHighlights: "",
-  implementationExperience: "",
-  availability: "",
+  googleScholarUrl: "",
+  orcidUrl: "",
+  personalWebsiteUrl: "",
+  expertiseKeywords: "",
+  domainExpertise: "",
+  methodsExpertise: "",
+  geographicExperience: "",
+  careerStage: "Mid-career",
+  shortBio: "",
+  publicationSummary: "",
+  selectedPublications: "",
+  hIndex: "",
+  citationCount: "",
+  notes: "",
 };
 
 const emptyProposal = {
@@ -123,6 +140,15 @@ export function AdminConsole() {
   const [editingOpportunityId, setEditingOpportunityId] = useState<string | null>(null);
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [editingProposalId, setEditingProposalId] = useState<string | null>(null);
+  const [teamSearch, setTeamSearch] = useState("");
+
+  const loadTeam = useCallback(async (search = "") => {
+    const query = search ? `?q=${encodeURIComponent(search)}` : "";
+    const response = await fetch(`/api/team-members${query}`);
+    const payload = (await response.json()) as { items: TeamRow[] };
+
+    setTeam(payload.items ?? []);
+  }, []);
 
   useEffect(() => {
     async function loadInitialData() {
@@ -130,7 +156,7 @@ export function AdminConsole() {
     }
 
     void loadInitialData();
-  }, []);
+  }, [loadTeam]);
 
   async function loadStats() {
     const response = await fetch("/api/admin/stats");
@@ -149,13 +175,6 @@ export function AdminConsole() {
 
     setOpportunities(payload.items ?? []);
     setStatus(`${payload.items?.length ?? 0} manual opportunities loaded.`);
-  }
-
-  async function loadTeam() {
-    const response = await fetch("/api/admin/team");
-    const payload = (await response.json()) as { items: TeamRow[] };
-
-    setTeam(payload.items ?? []);
   }
 
   async function loadProposals() {
@@ -190,14 +209,19 @@ export function AdminConsole() {
   async function saveTeamMember() {
     const payload = {
       ...teamForm,
-      expertise: splitList(teamForm.expertise),
-      methods: splitList(teamForm.methods),
-      geographies: splitList(teamForm.geographies),
+      expertiseKeywords: splitList(teamForm.expertiseKeywords),
+      domainExpertise: splitList(teamForm.domainExpertise),
+      methodsExpertise: splitList(teamForm.methodsExpertise),
+      geographicExperience: splitList(teamForm.geographicExperience),
+      selectedPublications: splitList(teamForm.selectedPublications),
+      hIndex: teamForm.hIndex === "" ? undefined : Number(teamForm.hIndex),
+      citationCount:
+        teamForm.citationCount === "" ? undefined : Number(teamForm.citationCount),
     };
     const response = await writeJson(
-      "/api/admin/team",
+      editingTeamId ? `/api/team-members/${editingTeamId}` : "/api/team-members",
       editingTeamId ? "PATCH" : "POST",
-      editingTeamId ? { id: editingTeamId, ...payload } : payload,
+      payload,
     );
 
     if (!response.ok) {
@@ -208,6 +232,28 @@ export function AdminConsole() {
     setTeamForm(emptyTeam);
     setEditingTeamId(null);
     setStatus("Team member saved.");
+    await Promise.all([loadTeam(), loadStats()]);
+  }
+
+  async function deleteCurrentTeamMember() {
+    if (!editingTeamId) {
+      return;
+    }
+
+    const response = await fetch(`/api/team-members/${editingTeamId}`, {
+      method: "DELETE",
+      headers: adminKey ? { "x-admin-key": adminKey } : {},
+    });
+    const payload = (await response.json()) as { error?: string };
+
+    if (!response.ok) {
+      setStatus(payload.error ?? "Team member delete failed.");
+      return;
+    }
+
+    setTeamForm(emptyTeam);
+    setEditingTeamId(null);
+    setStatus("Team member deleted.");
     await Promise.all([loadTeam(), loadStats()]);
   }
 
@@ -355,24 +401,38 @@ export function AdminConsole() {
           form={teamForm}
           items={team}
           editingId={editingTeamId}
+          search={teamSearch}
           onFormChange={setTeamForm}
+          onSearchChange={(value) => {
+            setTeamSearch(value);
+            void loadTeam(value);
+          }}
           onSave={saveTeamMember}
+          onDelete={deleteCurrentTeamMember}
           onEdit={(item) => {
             setEditingTeamId(item.id);
             setTeamForm({
-              name: item.name,
-              role: item.role,
-              email: "",
-              scholarUrl: item.scholarUrl ?? "",
-              affiliation: item.affiliation ?? "",
-              expertise: item.expertise.join(", "),
-              methods: item.methods.join(", "),
-              geographies: item.geographies.join(", "),
+              fullName: item.fullName,
+              preferredRole: item.preferredRole,
+              institution: item.institution ?? "",
+              department: item.department ?? "",
+              country: item.country ?? "",
+              region: item.region ?? "",
+              email: item.email ?? "",
+              googleScholarUrl: item.googleScholarUrl ?? "",
+              orcidUrl: item.orcidUrl ?? "",
+              personalWebsiteUrl: item.personalWebsiteUrl ?? "",
+              expertiseKeywords: item.expertiseKeywords.join(", "),
+              domainExpertise: item.domainExpertise.join(", "),
+              methodsExpertise: item.methodsExpertise.join(", "),
+              geographicExperience: item.geographicExperience.join(", "),
               careerStage: item.careerStage,
-              leadershipStrength: item.leadershipStrength,
-              publicationHighlights: item.publicationHighlights,
-              implementationExperience: item.implementationExperience,
-              availability: item.availability,
+              shortBio: item.shortBio ?? "",
+              publicationSummary: item.publicationSummary ?? "",
+              selectedPublications: item.selectedPublications.join(", "),
+              hIndex: item.hIndex?.toString() ?? "",
+              citationCount: item.citationCount?.toString() ?? "",
+              notes: item.notes ?? "",
             });
           }}
           onClear={() => {
@@ -471,8 +531,11 @@ function TeamSection(props: {
   form: typeof emptyTeam;
   items: TeamRow[];
   editingId: string | null;
+  search: string;
   onFormChange: (form: typeof emptyTeam) => void;
+  onSearchChange: (value: string) => void;
   onSave: () => void;
+  onDelete: () => void;
   onEdit: (item: TeamRow) => void;
   onClear: () => void;
 }) {
@@ -487,35 +550,118 @@ function TeamSection(props: {
         </div>
         <div className="admin-body">
           <div className="field-grid">
-            <TextField form={props.form} field="name" label="Name" onChange={props.onFormChange} />
-            <TextField form={props.form} field="role" label="Role" onChange={props.onFormChange} />
+            <TextField form={props.form} field="fullName" label="Full name" onChange={props.onFormChange} />
+            <SelectField
+              form={props.form}
+              field="preferredRole"
+              label="Preferred role"
+              options={["PI", "Co-PI", "Co-Investigator", "Mentor", "Technical Lead", "Statistician", "Field Lead", "Policy Lead", "Other"]}
+              onChange={props.onFormChange}
+            />
           </div>
-          <TextField form={props.form} field="scholarUrl" label="Google Scholar profile link" onChange={props.onFormChange} />
-          <TextField form={props.form} field="affiliation" label="Affiliation" onChange={props.onFormChange} />
-          <TextField form={props.form} field="expertise" label="Expertise (comma-separated)" onChange={props.onFormChange} />
-          <TextField form={props.form} field="methods" label="Methods (comma-separated)" onChange={props.onFormChange} />
-          <TextField form={props.form} field="geographies" label="Geographies (comma-separated)" onChange={props.onFormChange} />
           <div className="field-grid">
-            <TextField form={props.form} field="careerStage" label="Career stage" onChange={props.onFormChange} />
-            <TextField form={props.form} field="availability" label="Availability" onChange={props.onFormChange} />
+            <TextField form={props.form} field="institution" label="Institution" onChange={props.onFormChange} />
+            <TextField form={props.form} field="department" label="Department" onChange={props.onFormChange} />
           </div>
-          <TextAreaField form={props.form} field="leadershipStrength" label="Leadership/PI strength" onChange={props.onFormChange} />
-          <TextAreaField form={props.form} field="publicationHighlights" label="Publication highlights (manual metadata)" onChange={props.onFormChange} />
-          <TextAreaField form={props.form} field="implementationExperience" label="Implementation experience" onChange={props.onFormChange} />
-          <p className="privacy-note">Scholar links are stored for reference only. The app does not scrape Scholar automatically.</p>
-          <FormActions onClear={props.onClear} onSave={props.onSave} />
+          <div className="field-grid">
+            <TextField form={props.form} field="country" label="Country" onChange={props.onFormChange} />
+            <TextField form={props.form} field="region" label="Region" onChange={props.onFormChange} />
+          </div>
+          <TextField form={props.form} field="email" label="Email" onChange={props.onFormChange} />
+          <TextField form={props.form} field="googleScholarUrl" label="Google Scholar Profile URL" onChange={props.onFormChange} />
+          <p className="privacy-note">Paste the public Google Scholar profile link. Publication details can be entered manually for now.</p>
+          <div className="field-grid">
+            <TextField form={props.form} field="orcidUrl" label="ORCID link" onChange={props.onFormChange} />
+            <TextField form={props.form} field="personalWebsiteUrl" label="Personal website" onChange={props.onFormChange} />
+          </div>
+          <TextField form={props.form} field="expertiseKeywords" label="Expertise keywords" onChange={props.onFormChange} />
+          <TextField form={props.form} field="domainExpertise" label="Domain expertise" onChange={props.onFormChange} />
+          <TextField form={props.form} field="methodsExpertise" label="Methods expertise" onChange={props.onFormChange} />
+          <TextField form={props.form} field="geographicExperience" label="Geographic experience" onChange={props.onFormChange} />
+          <div className="field-grid">
+            <SelectField
+              form={props.form}
+              field="careerStage"
+              label="Career stage"
+              options={["Early-career", "Mid-career", "Senior", "Professor", "Practitioner", "Other"]}
+              onChange={props.onFormChange}
+            />
+            <TextField form={props.form} field="hIndex" label="h-index" onChange={props.onFormChange} />
+          </div>
+          <TextField form={props.form} field="citationCount" label="Citation count" onChange={props.onFormChange} />
+          <TextAreaField form={props.form} field="shortBio" label="Short bio" onChange={props.onFormChange} />
+          <TextAreaField form={props.form} field="publicationSummary" label="Publication summary" onChange={props.onFormChange} />
+          <TextAreaField form={props.form} field="selectedPublications" label="Selected publications" onChange={props.onFormChange} />
+          <TextAreaField form={props.form} field="notes" label="Notes" onChange={props.onFormChange} />
+          <div className="actions">
+            <button className="ghost-button" type="button" onClick={props.onClear}>
+              Clear
+            </button>
+            {props.editingId ? (
+              <button className="ghost-button danger" type="button" onClick={props.onDelete}>
+                Delete
+              </button>
+            ) : null}
+            <button className="primary-button" type="button" onClick={props.onSave}>
+              Save
+            </button>
+          </div>
         </div>
       </section>
-      <ListPanel
-        title={`${props.items.length} team members`}
-        items={props.items.map((item) => ({
-          id: item.id,
-          title: item.name,
-          meta: `${item.role} / ${item.expertise.slice(0, 3).join(", ")}`,
-          chip: item.scholarUrl ? "Scholar" : "manual",
-          onClick: () => props.onEdit(item),
-        }))}
-      />
+      <section className="panel admin-list-panel">
+        <div className="panel-header">
+          <div>
+            <p className="eyebrow">Saved records</p>
+            <h2>{props.items.length} team members</h2>
+          </div>
+        </div>
+        <div className="admin-body">
+          <label className="field" htmlFor="team-search">
+            <span>Search team profiles</span>
+            <input
+              id="team-search"
+              value={props.search}
+              onChange={(event) => props.onSearchChange(event.target.value)}
+              placeholder="Name, role, institution, expertise, method, country, career stage"
+            />
+          </label>
+        </div>
+        <div className="history-list admin-list">
+          {props.items.length === 0 ? <p className="empty-state">No team profiles saved yet.</p> : null}
+          {props.items.map((item) => (
+            <div className="history-row team-profile-row" key={item.id}>
+              <button type="button" onClick={() => props.onEdit(item)}>
+                <span>
+                  <strong>{item.fullName}</strong>
+                  <small>
+                    {item.preferredRole} / {item.institution || "Institution not entered"} /{" "}
+                    {item.country || "Country not entered"}
+                  </small>
+                  <small>
+                    {item.expertiseKeywords.slice(0, 4).join(", ") || "Expertise not entered"}
+                  </small>
+                  <small>Profile completeness: {profileCompleteness(item)}%</small>
+                </span>
+              </button>
+              <span className="team-row-actions">
+                {item.googleScholarUrl ? (
+                  <a
+                    className="open-call-link"
+                    href={item.googleScholarUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open Scholar
+                  </a>
+                ) : (
+                  <span className="mode-dot seed">No Scholar</span>
+                )}
+                <span className="mode-dot cached">{item.careerStage}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
     </section>
   );
 }
@@ -679,6 +825,33 @@ function TextField<T extends Record<string, string | number>>(props: {
   );
 }
 
+function SelectField<T extends Record<string, string | number>>(props: {
+  form: T;
+  field: keyof T;
+  label: string;
+  options: string[];
+  onChange: (form: T) => void;
+}) {
+  return (
+    <label className="field" htmlFor={String(props.field)}>
+      <span>{props.label}</span>
+      <select
+        id={String(props.field)}
+        value={String(props.form[props.field] ?? "")}
+        onChange={(event) =>
+          props.onChange({ ...props.form, [props.field]: event.target.value })
+        }
+      >
+        {props.options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function NumberField<T extends Record<string, string | number>>(props: {
   form: T;
   field: keyof T;
@@ -738,4 +911,27 @@ function splitList(value: string) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function profileCompleteness(item: TeamRow) {
+  const checks = [
+    item.fullName,
+    item.preferredRole,
+    item.institution,
+    item.country,
+    item.googleScholarUrl,
+    item.expertiseKeywords.length > 0,
+    item.domainExpertise.length > 0,
+    item.methodsExpertise.length > 0,
+    item.geographicExperience.length > 0,
+    item.careerStage,
+    item.shortBio,
+    item.publicationSummary,
+    item.selectedPublications.length > 0,
+    item.hIndex !== undefined,
+    item.citationCount !== undefined,
+  ];
+  const complete = checks.filter(Boolean).length;
+
+  return Math.round((complete / checks.length) * 100);
 }

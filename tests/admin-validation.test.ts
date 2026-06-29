@@ -21,20 +21,48 @@ test("manualOpportunitySchema requires original call link", () => {
 
 test("teamMemberSchema accepts Google Scholar profile links", () => {
   const parsed = teamMemberSchema.safeParse({
-    name: "Dr. Example",
-    role: "PI",
-    scholarUrl: "https://scholar.google.com/citations?user=example",
-    expertise: "climate, health",
-    methods: "mixed-methods",
-    geographies: "Kenya",
-    careerStage: "mid-career",
-    leadershipStrength: "PI experience",
-    publicationHighlights: "Relevant publications entered manually.",
-    implementationExperience: "Implementation partnerships.",
-    availability: "available",
+    fullName: "Dr. Example",
+    preferredRole: "PI",
+    institution: "Example University",
+    department: "Public Health",
+    country: "Kenya",
+    region: "East Africa",
+    email: "",
+    googleScholarUrl: "https://scholar.google.com/citations?user=example",
+    orcidUrl: "https://orcid.org/0000-0000-0000-0000",
+    personalWebsiteUrl: "",
+    expertiseKeywords: "climate, health",
+    domainExpertise: "climate health",
+    methodsExpertise: "mixed-methods",
+    geographicExperience: "Kenya",
+    careerStage: "Mid-career",
+    shortBio: "Implementation partnerships.",
+    publicationSummary: "Relevant publications entered manually.",
+    selectedPublications: "Example paper",
+    hIndex: "12",
+    citationCount: "400",
+    notes: "PI experience",
   });
 
   assert.equal(parsed.success, true);
+});
+
+test("teamMemberSchema rejects invalid Scholar URLs and metric values", () => {
+  const parsed = teamMemberSchema.safeParse({
+    fullName: "Dr. Example",
+    preferredRole: "PI",
+    googleScholarUrl: "not-a-url",
+    expertiseKeywords: "climate, health",
+    domainExpertise: "climate health",
+    methodsExpertise: "mixed-methods",
+    geographicExperience: "Kenya",
+    careerStage: "Mid-career",
+    selectedPublications: "",
+    hIndex: "not numeric",
+    citationCount: "400",
+  });
+
+  assert.equal(parsed.success, false);
 });
 
 test("proposalSchema accepts pasted proposal text", () => {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   createTeamMember,
+  deleteTeamMember,
   listTeamMemberRows,
   updateTeamMember,
 } from "@/db/repository";
@@ -8,8 +9,9 @@ import { formatValidationError, teamMemberSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
 
-export async function GET() {
-  const items = await listTeamMemberRows();
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const items = await listTeamMemberRows(url.searchParams.get("q") ?? "");
 
   return NextResponse.json({ items });
 }
@@ -64,6 +66,25 @@ export async function PATCH(request: Request) {
   const item = await updateTeamMember(id, parsed.data);
 
   return NextResponse.json({ item });
+}
+
+export async function DELETE(request: Request) {
+  const auth = requireAdminKey(request);
+
+  if (auth) {
+    return auth;
+  }
+
+  const url = new URL(request.url);
+  const id = url.searchParams.get("id");
+
+  if (!id) {
+    return NextResponse.json({ error: "Team member id is required." }, { status: 400 });
+  }
+
+  const deleted = await deleteTeamMember(id);
+
+  return NextResponse.json({ deleted });
 }
 
 function requireAdminKey(request: Request) {

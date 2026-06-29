@@ -136,20 +136,51 @@ const commaList = z.union([z.array(z.string()), z.string()]).transform((value) =
         .filter(Boolean),
 );
 
+const optionalNonNegativeInt = (max: number) =>
+  z.preprocess(
+    (value) => (value === "" || value === null ? undefined : value),
+    z.coerce.number().int().min(0).max(max).optional(),
+  );
+
 export const teamMemberSchema = z.object({
-  name: z.string().trim().min(2).max(160),
-  role: z.string().trim().min(2).max(120),
+  fullName: z.string().trim().min(2, "Full name is required.").max(160),
+  preferredRole: z.enum([
+    "PI",
+    "Co-PI",
+    "Co-Investigator",
+    "Mentor",
+    "Technical Lead",
+    "Statistician",
+    "Field Lead",
+    "Policy Lead",
+    "Other",
+  ]),
+  institution: z.string().trim().max(180).optional().or(z.literal("")),
+  department: z.string().trim().max(180).optional().or(z.literal("")),
+  country: z.string().trim().max(120).optional().or(z.literal("")),
+  region: z.string().trim().max(120).optional().or(z.literal("")),
   email: z.string().trim().email().optional().or(z.literal("")),
-  scholarUrl: z.string().trim().url().optional().or(z.literal("")),
-  affiliation: z.string().trim().max(180).optional().or(z.literal("")),
-  expertise: commaList,
-  methods: commaList,
-  geographies: commaList,
-  careerStage: z.string().trim().min(2).max(120),
-  leadershipStrength: z.string().trim().min(2).max(300),
-  publicationHighlights: z.string().trim().min(2).max(1200),
-  implementationExperience: z.string().trim().min(2).max(1200),
-  availability: z.string().trim().min(2).max(120),
+  googleScholarUrl: z.string().trim().url().optional().or(z.literal("")),
+  orcidUrl: z.string().trim().url().optional().or(z.literal("")),
+  personalWebsiteUrl: z.string().trim().url().optional().or(z.literal("")),
+  expertiseKeywords: commaList,
+  domainExpertise: commaList,
+  methodsExpertise: commaList,
+  geographicExperience: commaList,
+  careerStage: z.enum([
+    "Early-career",
+    "Mid-career",
+    "Senior",
+    "Professor",
+    "Practitioner",
+    "Other",
+  ]),
+  shortBio: z.string().trim().max(2000).optional().or(z.literal("")),
+  publicationSummary: z.string().trim().max(2000).optional().or(z.literal("")),
+  selectedPublications: commaList,
+  hIndex: optionalNonNegativeInt(1000),
+  citationCount: optionalNonNegativeInt(10000000),
+  notes: z.string().trim().max(2000).optional().or(z.literal("")),
 });
 
 export const proposalSchema = z.object({

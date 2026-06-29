@@ -433,34 +433,51 @@ function normalizeManualOpportunity(
   );
 }
 
-export async function listTeamMembers() {
+export async function listTeamMembers(search = "") {
   const db = getDb();
 
   if (!db) {
     return [];
   }
 
+  const term = search.trim().toLowerCase();
   const rows = await db
     .select()
     .from(teamMembers)
+    .where(
+      term
+        ? sql`lower(${teamMembers.fullName} || ' ' || ${teamMembers.preferredRole} || ' ' || coalesce(${teamMembers.institution}, '') || ' ' || coalesce(${teamMembers.country}, '') || ' ' || coalesce(${teamMembers.careerStage}, '') || ' ' || (${teamMembers.expertiseKeywords})::text || ' ' || (${teamMembers.domainExpertise})::text || ' ' || (${teamMembers.methodsExpertise})::text || ' ' || (${teamMembers.geographicExperience})::text) like ${`%${term}%`}`
+        : undefined,
+    )
     .orderBy(desc(teamMembers.updatedAt));
 
-  return rows.map((row) => ({
-    ...row.raw,
-    id: row.id,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  }));
+  return rows.map(normalizeTeamMemberRow);
 }
 
-export async function listTeamMemberRows() {
+export async function listTeamMemberRows(search = "") {
   const db = getDb();
 
   if (!db) {
     return [];
   }
 
-  return db.select().from(teamMembers).orderBy(desc(teamMembers.updatedAt));
+  return listTeamMembers(search);
+}
+
+export async function getTeamMember(id: string) {
+  const db = getDb();
+
+  if (!db) {
+    return null;
+  }
+
+  const [row] = await db
+    .select()
+    .from(teamMembers)
+    .where(eq(teamMembers.id, id))
+    .limit(1);
+
+  return row ? normalizeTeamMemberRow(row) : null;
 }
 
 export async function createTeamMember(input: TeamMemberInput) {
@@ -474,24 +491,43 @@ export async function createTeamMember(input: TeamMemberInput) {
   const [row] = await db
     .insert(teamMembers)
     .values({
-      name: raw.name,
-      role: raw.role,
+      name: raw.fullName,
+      role: raw.preferredRole,
+      fullName: raw.fullName,
+      preferredRole: raw.preferredRole,
+      institution: raw.institution,
+      department: raw.department,
+      country: raw.country,
+      region: raw.region,
       email: raw.email,
-      scholarUrl: raw.scholarUrl,
-      affiliation: raw.affiliation,
-      expertise: raw.expertise,
-      methods: raw.methods,
-      geographies: raw.geographies,
+      scholarUrl: raw.googleScholarUrl,
+      googleScholarUrl: raw.googleScholarUrl,
+      orcidUrl: raw.orcidUrl,
+      personalWebsiteUrl: raw.personalWebsiteUrl,
+      affiliation: raw.institution,
+      expertise: raw.expertiseKeywords,
+      expertiseKeywords: raw.expertiseKeywords,
+      domainExpertise: raw.domainExpertise,
+      methods: raw.methodsExpertise,
+      methodsExpertise: raw.methodsExpertise,
+      geographies: raw.geographicExperience,
+      geographicExperience: raw.geographicExperience,
       careerStage: raw.careerStage,
-      leadershipStrength: raw.leadershipStrength,
-      publicationHighlights: raw.publicationHighlights,
-      implementationExperience: raw.implementationExperience,
-      availability: raw.availability,
+      leadershipStrength: raw.notes || raw.preferredRole,
+      shortBio: raw.shortBio,
+      publicationHighlights: raw.publicationSummary || "Publication metadata not entered.",
+      publicationSummary: raw.publicationSummary,
+      selectedPublications: raw.selectedPublications,
+      hIndex: raw.hIndex,
+      citationCount: raw.citationCount,
+      implementationExperience: raw.shortBio || raw.notes || "Needs manual verification.",
+      availability: raw.notes || "Needs manual verification.",
+      notes: raw.notes,
       raw,
     })
     .returning();
 
-  return row;
+  return normalizeTeamMemberRow(row);
 }
 
 export async function updateTeamMember(id: string, input: TeamMemberInput) {
@@ -505,26 +541,56 @@ export async function updateTeamMember(id: string, input: TeamMemberInput) {
   const [row] = await db
     .update(teamMembers)
     .set({
-      name: raw.name,
-      role: raw.role,
+      name: raw.fullName,
+      role: raw.preferredRole,
+      fullName: raw.fullName,
+      preferredRole: raw.preferredRole,
+      institution: raw.institution,
+      department: raw.department,
+      country: raw.country,
+      region: raw.region,
       email: raw.email,
-      scholarUrl: raw.scholarUrl,
-      affiliation: raw.affiliation,
-      expertise: raw.expertise,
-      methods: raw.methods,
-      geographies: raw.geographies,
+      scholarUrl: raw.googleScholarUrl,
+      googleScholarUrl: raw.googleScholarUrl,
+      orcidUrl: raw.orcidUrl,
+      personalWebsiteUrl: raw.personalWebsiteUrl,
+      affiliation: raw.institution,
+      expertise: raw.expertiseKeywords,
+      expertiseKeywords: raw.expertiseKeywords,
+      domainExpertise: raw.domainExpertise,
+      methods: raw.methodsExpertise,
+      methodsExpertise: raw.methodsExpertise,
+      geographies: raw.geographicExperience,
+      geographicExperience: raw.geographicExperience,
       careerStage: raw.careerStage,
-      leadershipStrength: raw.leadershipStrength,
-      publicationHighlights: raw.publicationHighlights,
-      implementationExperience: raw.implementationExperience,
-      availability: raw.availability,
+      leadershipStrength: raw.notes || raw.preferredRole,
+      shortBio: raw.shortBio,
+      publicationHighlights: raw.publicationSummary || "Publication metadata not entered.",
+      publicationSummary: raw.publicationSummary,
+      selectedPublications: raw.selectedPublications,
+      hIndex: raw.hIndex,
+      citationCount: raw.citationCount,
+      implementationExperience: raw.shortBio || raw.notes || "Needs manual verification.",
+      availability: raw.notes || "Needs manual verification.",
+      notes: raw.notes,
       raw,
       updatedAt: new Date(),
     })
     .where(eq(teamMembers.id, id))
     .returning();
 
-  return row;
+  return row ? normalizeTeamMemberRow(row) : null;
+}
+
+export async function deleteTeamMember(id: string) {
+  const db = getDb();
+
+  if (!db) {
+    return false;
+  }
+
+  await db.delete(teamMembers).where(eq(teamMembers.id, id));
+  return true;
 }
 
 export async function listProposals(search = "") {
@@ -692,23 +758,144 @@ export type TeamMemberInput = Omit<TeamMember, "id" | "createdAt" | "updatedAt">
 
 export type ProposalInput = Omit<ProposalRecord, "id" | "createdAt" | "updatedAt">;
 
-function normalizeTeamMember(input: TeamMemberInput, id = input.name): TeamMember {
+function normalizeTeamMember(input: TeamMemberInput, id = input.fullName): TeamMember {
   return {
     id,
-    name: input.name,
-    role: input.role,
-    email: input.email,
-    scholarUrl: input.scholarUrl,
-    affiliation: input.affiliation,
-    expertise: input.expertise,
-    methods: input.methods,
-    geographies: input.geographies,
+    fullName: input.fullName,
+    preferredRole: input.preferredRole,
+    institution: blankToUndefined(input.institution),
+    department: blankToUndefined(input.department),
+    country: blankToUndefined(input.country),
+    region: blankToUndefined(input.region),
+    email: blankToUndefined(input.email),
+    googleScholarUrl: blankToUndefined(input.googleScholarUrl),
+    orcidUrl: blankToUndefined(input.orcidUrl),
+    personalWebsiteUrl: blankToUndefined(input.personalWebsiteUrl),
+    expertiseKeywords: input.expertiseKeywords,
+    domainExpertise: input.domainExpertise,
+    methodsExpertise: input.methodsExpertise,
+    geographicExperience: input.geographicExperience,
     careerStage: input.careerStage,
-    leadershipStrength: input.leadershipStrength,
-    publicationHighlights: input.publicationHighlights,
-    implementationExperience: input.implementationExperience,
-    availability: input.availability,
+    shortBio: blankToUndefined(input.shortBio),
+    publicationSummary: blankToUndefined(input.publicationSummary),
+    selectedPublications: input.selectedPublications,
+    hIndex: input.hIndex,
+    citationCount: input.citationCount,
+    notes: blankToUndefined(input.notes),
   };
+}
+
+function normalizeTeamMemberRow(row: typeof teamMembers.$inferSelect): TeamMember {
+  const raw = row.raw as Partial<TeamMember> & {
+    name?: string;
+    role?: TeamMember["preferredRole"] | string;
+    scholarUrl?: string;
+    expertise?: string[];
+    methods?: string[];
+    geographies?: string[];
+    publicationHighlights?: string;
+    implementationExperience?: string;
+  };
+
+  return {
+    id: row.id,
+    fullName: row.fullName || raw.fullName || raw.name || row.name,
+    preferredRole: normalizePreferredRole(row.preferredRole || raw.preferredRole || raw.role || row.role),
+    institution: row.institution ?? raw.institution,
+    department: row.department ?? raw.department,
+    country: row.country ?? raw.country,
+    region: row.region ?? raw.region,
+    email: row.email ?? raw.email,
+    googleScholarUrl: row.googleScholarUrl ?? raw.googleScholarUrl ?? raw.scholarUrl ?? row.scholarUrl ?? undefined,
+    orcidUrl: row.orcidUrl ?? raw.orcidUrl,
+    personalWebsiteUrl: row.personalWebsiteUrl ?? raw.personalWebsiteUrl,
+    expertiseKeywords: nonEmptyList(row.expertiseKeywords, raw.expertiseKeywords, raw.expertise, row.expertise),
+    domainExpertise: nonEmptyList(row.domainExpertise, raw.domainExpertise, raw.expertise, row.expertise),
+    methodsExpertise: nonEmptyList(row.methodsExpertise, raw.methodsExpertise, raw.methods, row.methods),
+    geographicExperience: nonEmptyList(row.geographicExperience, raw.geographicExperience, raw.geographies, row.geographies),
+    careerStage: normalizeCareerStage(row.careerStage || raw.careerStage),
+    shortBio: row.shortBio ?? raw.shortBio ?? raw.implementationExperience,
+    publicationSummary: row.publicationSummary ?? raw.publicationSummary ?? raw.publicationHighlights,
+    selectedPublications: nonEmptyList(row.selectedPublications, raw.selectedPublications),
+    hIndex: row.hIndex ?? raw.hIndex,
+    citationCount: row.citationCount ?? raw.citationCount,
+    notes: row.notes ?? raw.notes,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function normalizePreferredRole(value?: string): TeamMember["preferredRole"] {
+  const allowed: TeamMember["preferredRole"][] = [
+    "PI",
+    "Co-PI",
+    "Co-Investigator",
+    "Mentor",
+    "Technical Lead",
+    "Statistician",
+    "Field Lead",
+    "Policy Lead",
+    "Other",
+  ];
+
+  if (!value) {
+    return "Other";
+  }
+
+  const normalized = allowed.find(
+    (role) => role.toLowerCase() === value.toLowerCase(),
+  );
+
+  if (normalized) {
+    return normalized;
+  }
+
+  if (value.toLowerCase().includes("principal") || value.toLowerCase() === "pi") {
+    return "PI";
+  }
+
+  if (value.toLowerCase().includes("co")) {
+    return "Co-Investigator";
+  }
+
+  return "Other";
+}
+
+function normalizeCareerStage(value?: string): TeamMember["careerStage"] {
+  const allowed: TeamMember["careerStage"][] = [
+    "Early-career",
+    "Mid-career",
+    "Senior",
+    "Professor",
+    "Practitioner",
+    "Other",
+  ];
+
+  if (!value) {
+    return "Other";
+  }
+
+  return (
+    allowed.find((stage) => stage.toLowerCase() === value.toLowerCase()) ??
+    "Other"
+  );
+}
+
+function nonEmptyList(...lists: Array<string[] | undefined | null>) {
+  for (const list of lists) {
+    const clean = list?.map((item) => item.trim()).filter(Boolean) ?? [];
+
+    if (clean.length > 0) {
+      return clean;
+    }
+  }
+
+  return [];
+}
+
+function blankToUndefined(value?: string) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
 }
 
 function normalizeProposal(input: ProposalInput, id = input.title): ProposalRecord {

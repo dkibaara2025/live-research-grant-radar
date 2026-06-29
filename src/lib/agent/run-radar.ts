@@ -38,7 +38,7 @@ export async function runRadar(
   const matches = [];
 
   for (const [index, opportunity] of scored.entries()) {
-    const teamRecommendation = recommendTeam(opportunity, teamMembers);
+    const teamRecommendation = recommendTeam(opportunity, teamMembers, profile);
     const proposalRecommendation = recommendProposal(
       opportunity,
       proposals,

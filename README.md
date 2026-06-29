@@ -143,7 +143,7 @@ Open `/admin`.
 The admin panel has five sections:
 
 - Opportunities: add or edit manual opportunities. Every manual record requires an original call link.
-- Team Profiles: store manually entered team metadata, including Google Scholar links, expertise, methods, geographies, leadership notes, publications, and availability.
+- Team Profiles: create, edit, delete, and search database-backed team member profiles with Google Scholar links, ORCID links, websites, institution data, expertise, methods, geography, career stage, publication metadata, h-index, citation count, and notes.
 - Proposal Library: paste proposal text and metadata for matching. No file upload is required.
 - Source Refresh: refresh configured live feeds/cache.
 - Data Health: review counts for manual opportunities, team members, proposals, radar runs, missing call links, and latest refresh.
@@ -153,6 +153,29 @@ Set `ADMIN_KEY` in Vercel and `.env.local` to protect admin write actions. If `A
 ### Team And Proposal Matching
 
 Team matching uses only saved manual metadata. Google Scholar links are stored and displayed as profile links; the app does not scrape Google Scholar or claim publications that were not entered by an admin.
+
+To add a team member:
+
+1. Open `/admin`.
+2. Enter `ADMIN_KEY` if it is configured.
+3. Open `Team Profiles`.
+4. Fill in full name, preferred role, institution, country/region, expertise keywords, domain expertise, methods expertise, geographic experience, career stage, and manual publication metadata.
+5. Paste the public Google Scholar profile URL in `Google Scholar Profile URL`.
+6. Save the profile.
+
+Saved Scholar links appear as `Open Scholar` buttons. The app also shows profile completeness, and search covers name, role, institution, expertise, method, country, and career stage.
+
+Team matching uses `scoreTeamMemberForOpportunity(teamMember, opportunity, researchProfile)` to estimate:
+
+- keyword overlap;
+- domain expertise fit;
+- methods expertise fit;
+- geography fit;
+- career-stage and PI suitability;
+- manually entered publication relevance;
+- implementation or field experience from saved notes/bio.
+
+The wording is intentionally cautious: matches "appear aligned based on saved metadata," and Scholar/publication evidence "needs manual verification."
 
 Proposal matching uses pasted proposal text and metadata to suggest:
 
@@ -207,6 +230,13 @@ Admin stats:
 Invoke-RestMethod http://127.0.0.1:3000/api/admin/stats
 ```
 
+Team profiles:
+
+```powershell
+Invoke-RestMethod "http://127.0.0.1:3000/api/team-members?q=climate"
+Invoke-RestMethod http://127.0.0.1:3000/api/team-members/<team-member-id>
+```
+
 ## Make The Site Live
 
 1. Push the repository to GitHub.
@@ -238,7 +268,7 @@ npm run db:migrate
 ```
 
 10. Visit `/api/health` on the Vercel URL.
-11. Open `/admin`, enter the `ADMIN_KEY`, add at least one manual opportunity with a real call link, add team profiles, and paste proposal records.
+11. Open `/admin`, enter the `ADMIN_KEY`, add at least one manual opportunity with a real call link, add team profiles with Google Scholar links/manual publication metadata, and paste proposal records.
 12. Run a radar search from the home page and confirm each match shows an original call link or a clear missing-link verification note.
 
 ## Tests
@@ -250,7 +280,7 @@ npm test
 npm run build
 ```
 
-Tests cover scoring, normalization, invalid input validation, source fallback labelling, PDF export title generation, team matching, proposal matching, and radar output shape.
+Tests cover scoring, normalization, invalid input validation, valid/invalid Google Scholar team profiles, source fallback labelling, PDF export title generation, team member scoring, team matching, proposal matching, and radar output shape.
 
 ## Known Limitations
 

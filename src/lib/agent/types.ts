@@ -94,23 +94,61 @@ export type RankedOpportunity = FundingOpportunity & {
   nextSevenDayPlan: string[];
 };
 
+export type TeamPreferredRole =
+  | "PI"
+  | "Co-PI"
+  | "Co-Investigator"
+  | "Mentor"
+  | "Technical Lead"
+  | "Statistician"
+  | "Field Lead"
+  | "Policy Lead"
+  | "Other";
+
+export type TeamCareerStage =
+  | "Early-career"
+  | "Mid-career"
+  | "Senior"
+  | "Professor"
+  | "Practitioner"
+  | "Other";
+
 export type TeamMember = {
   id: string;
-  name: string;
-  role: string;
+  fullName: string;
+  preferredRole: TeamPreferredRole;
+  institution?: string;
+  department?: string;
+  country?: string;
+  region?: string;
   email?: string;
-  scholarUrl?: string;
-  affiliation?: string;
-  expertise: string[];
-  methods: string[];
-  geographies: string[];
-  careerStage: string;
-  leadershipStrength: string;
-  publicationHighlights: string;
-  implementationExperience: string;
-  availability: string;
+  googleScholarUrl?: string;
+  orcidUrl?: string;
+  personalWebsiteUrl?: string;
+  expertiseKeywords: string[];
+  domainExpertise: string[];
+  methodsExpertise: string[];
+  geographicExperience: string[];
+  careerStage: TeamCareerStage;
+  shortBio?: string;
+  publicationSummary?: string;
+  selectedPublications: string[];
+  hIndex?: number;
+  citationCount?: number;
+  notes?: string;
   createdAt?: string;
   updatedAt?: string;
+};
+
+export type TeamMemberScore = {
+  memberId: string;
+  memberName: string;
+  suggestedRole: TeamMemberFit["recommendedRole"];
+  score: number;
+  positiveSignals: string[];
+  weakSignals: string[];
+  missingInformation: string[];
+  explanation: string;
 };
 
 export type TeamMemberFit = {

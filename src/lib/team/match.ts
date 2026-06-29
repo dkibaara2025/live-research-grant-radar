@@ -1,39 +1,45 @@
 import type {
   FundingOpportunity,
+  ResearchProfile,
   TeamMember,
   TeamMemberFit,
+  TeamMemberScore,
   TeamRecommendation,
 } from "@/lib/agent/types";
 
 export function recommendTeam(
   opportunity: FundingOpportunity,
   members: TeamMember[],
+  profile?: ResearchProfile,
 ): TeamRecommendation {
   if (members.length === 0) {
     return {
       coInvestigators: [],
-      missingExpertise: ["Add team profiles in Admin to calculate team fit."],
+      missingExpertise: ["No team profiles saved yet. Add team members in Admin to enable PI and co-investigator matching."],
       teamStrengthScore: 0,
       reasons: ["No saved team metadata was available for this run."],
-      risks: ["Scholar profiles and publication relevance should be reviewed manually."],
+      risks: ["Google Scholar profiles and publication relevance should be reviewed manually."],
       writingPlan: [],
       letterSupportPlan: [],
       dataAvailable: false,
     };
   }
 
-  const fits = members
-    .map((member) => scoreMember(opportunity, member))
-    .sort((left, right) => right.fitScore - left.fitScore);
-  const bestPi = fits.find((fit) => fit.recommendedRole === "PI") ?? fits[0];
+  const scored = members
+    .map((member) => scoreTeamMemberForOpportunity(member, opportunity, profile))
+    .sort((left, right) => right.score - left.score);
+  const fits = scored.map(toTeamMemberFit);
+  const bestPi =
+    fits.find((fit) => fit.recommendedRole === "PI" && fit.fitScore >= 35) ??
+    fits[0];
   const coInvestigators = fits
     .filter((fit) => fit.memberId !== bestPi.memberId)
     .slice(0, 4);
-  const missingExpertise = missingExpertiseFor(opportunity, fits);
   const teamStrengthScore = Math.round(
     (bestPi.fitScore + coInvestigators.reduce((total, fit) => total + fit.fitScore, 0)) /
       Math.max(1, coInvestigators.length + 1),
   );
+  const missingExpertise = missingExpertiseFor(opportunity, scored);
 
   return {
     bestPi,
@@ -41,12 +47,12 @@ export function recommendTeam(
     missingExpertise,
     teamStrengthScore,
     reasons: [
-      `${bestPi.name} appears suitable as PI based on saved metadata.`,
-      `${coInvestigators.length} co-investigator candidate(s) add complementary expertise.`,
+      `${bestPi.name} appears aligned based on saved metadata for the recommended PI role.`,
+      `${coInvestigators.length} co-investigator candidate(s) add complementary saved expertise.`,
     ],
     risks: [
-      "Scholar profile should be reviewed manually before final PI/co-investigator selection.",
-      ...fits.flatMap((fit) => fit.risks).slice(0, 2),
+      "Google Scholar profile should be reviewed manually before final PI/co-investigator selection.",
+      ...scored.flatMap((score) => score.weakSignals).slice(0, 2),
     ],
     writingPlan: writingPlan(bestPi, coInvestigators),
     letterSupportPlan: [
@@ -59,74 +65,185 @@ export function recommendTeam(
   };
 }
 
-function scoreMember(
+export function scoreTeamMemberForOpportunity(
+  teamMember: TeamMember,
   opportunity: FundingOpportunity,
-  member: TeamMember,
-): TeamMemberFit {
+  researchProfile?: ResearchProfile,
+): TeamMemberScore {
   const callText = normalize(
     [
       opportunity.title,
       opportunity.funder,
       opportunity.topics.join(" "),
       opportunity.tags.join(" "),
+      opportunity.focus,
       opportunity.description,
       opportunity.regionEligibility,
+      opportunity.countryEligibility,
       opportunity.careerStageEligibility,
+      researchProfile?.field,
+      researchProfile?.keywords,
+      researchProfile?.region,
+      researchProfile?.summary,
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
+  const keywordMatches = overlap(teamMember.expertiseKeywords, callText);
+  const domainMatches = overlap(teamMember.domainExpertise, callText);
+  const methodMatches = overlap(teamMember.methodsExpertise, callText);
+  const geographyMatches = overlap(
+    [
+      ...teamMember.geographicExperience,
+      teamMember.country,
+      teamMember.region,
+    ].filter(Boolean) as string[],
+    callText,
+  );
+  const publicationText = normalize(
+    [
+      teamMember.publicationSummary,
+      teamMember.selectedPublications.join(" "),
     ].join(" "),
   );
-  const expertiseMatches = overlap(member.expertise, callText);
-  const methodMatches = overlap(member.methods, callText);
-  const geographyMatches = overlap(member.geographies, callText);
-  const implementationFit = normalize(member.implementationExperience).includes("implementation")
-    ? 10
-    : 4;
-  const leadershipFit =
-    normalize(member.leadershipStrength).includes("pi") ||
-    normalize(member.leadershipStrength).includes("lead")
-      ? 18
-      : 8;
-  const fitScore = clamp(
-    expertiseMatches.length * 9 +
+  const publicationMatches = opportunity.topics.filter((topic) =>
+    publicationText.includes(topic.toLowerCase()),
+  );
+  const fieldExperienceFit = normalize(
+    [teamMember.shortBio, teamMember.notes].join(" "),
+  );
+  const hasFieldExperience =
+    fieldExperienceFit.includes("implementation") ||
+    fieldExperienceFit.includes("field") ||
+    fieldExperienceFit.includes("partner") ||
+    fieldExperienceFit.includes("community");
+  const piFit = piSuitability(teamMember);
+  const score = clamp(
+    keywordMatches.length * 8 +
+      domainMatches.length * 9 +
       methodMatches.length * 7 +
-      geographyMatches.length * 6 +
-      implementationFit +
-      leadershipFit,
+      geographyMatches.length * 7 +
+      publicationMatches.length * 5 +
+      (hasFieldExperience ? 8 : 0) +
+      piFit,
     0,
     100,
   );
-  const recommendedRole = leadershipFit >= 18 && fitScore >= 35 ? "PI" : methodMatches.length > 0 ? "Methods lead" : "Co-investigator";
+  const positiveSignals = [
+    ...keywordMatches.map((term) => `Keyword overlap with ${term}.`),
+    ...domainMatches.map((term) => `Domain expertise appears aligned with ${term}.`),
+    ...methodMatches.map((term) => `Methods expertise includes ${term}.`),
+    ...geographyMatches.map((term) => `Geographic experience includes ${term}.`),
+    ...publicationMatches.map((term) => `Publication metadata references ${term}.`),
+    ...(hasFieldExperience ? ["Implementation or field experience appears in saved metadata."] : []),
+    ...(piFit >= 12 ? ["Preferred role and career stage suggest PI suitability."] : []),
+  ].slice(0, 7);
+  const weakSignals = [
+    ...(keywordMatches.length === 0 ? ["Keyword overlap is limited from saved metadata."] : []),
+    ...(domainMatches.length === 0 ? ["Domain expertise needs manual verification."] : []),
+    ...(methodMatches.length === 0 ? ["Methods fit is not obvious from saved metadata."] : []),
+    ...(geographyMatches.length === 0 ? ["Geography fit needs manual verification."] : []),
+    ...(publicationMatches.length === 0 ? ["Publication relevance should be checked manually."] : []),
+  ];
+  const missingInformation = [
+    ...(teamMember.googleScholarUrl ? [] : ["Google Scholar profile URL is missing."]),
+    ...(teamMember.publicationSummary || teamMember.selectedPublications.length > 0
+      ? []
+      : ["Publication summary or selected publications are missing."]),
+    ...(teamMember.shortBio ? [] : ["Short bio is missing."]),
+    ...(teamMember.hIndex === undefined ? ["h-index is not entered."] : []),
+    ...(teamMember.citationCount === undefined ? ["Citation count is not entered."] : []),
+  ];
+  const suggestedRole = suggestedRoleFor(teamMember, score, methodMatches.length);
 
   return {
-    memberId: member.id,
-    name: member.name,
-    role: member.role,
-    fitScore,
-    recommendedRole,
-    reasons: [
-      ...expertiseMatches.map((term) => `Expertise overlaps with ${term}.`),
-      ...methodMatches.map((term) => `Methods fit includes ${term}.`),
-      ...geographyMatches.map((term) => `Geography experience includes ${term}.`),
-    ].slice(0, 4),
-    risks:
-      fitScore < 35
-        ? ["Fit is weak from saved metadata; needs manual review."]
-        : ["Publication and availability evidence should be verified."],
-    sectionAssignments: sectionAssignments(member, recommendedRole),
+    memberId: teamMember.id,
+    memberName: teamMember.fullName,
+    suggestedRole,
+    score,
+    positiveSignals,
+    weakSignals,
+    missingInformation,
+    explanation:
+      `${teamMember.fullName} appears aligned based on saved metadata with a ${score}% team-fit score. ` +
+      "Google Scholar profile and publication details should be reviewed manually before acting.",
   };
+}
+
+function toTeamMemberFit(score: TeamMemberScore): TeamMemberFit {
+  return {
+    memberId: score.memberId,
+    name: score.memberName,
+    role: score.suggestedRole,
+    fitScore: score.score,
+    recommendedRole: score.suggestedRole,
+    reasons: score.positiveSignals.length
+      ? score.positiveSignals
+      : ["Fit needs manual verification from saved metadata."],
+    risks: [...score.weakSignals, ...score.missingInformation].slice(0, 4),
+    sectionAssignments: sectionAssignments(score.suggestedRole),
+  };
+}
+
+function suggestedRoleFor(
+  member: TeamMember,
+  score: number,
+  methodMatchCount: number,
+): TeamMemberFit["recommendedRole"] {
+  if (
+    (member.preferredRole === "PI" || member.preferredRole === "Co-PI") &&
+    score >= 35
+  ) {
+    return "PI";
+  }
+
+  if (member.preferredRole === "Statistician" || methodMatchCount > 0) {
+    return "Methods lead";
+  }
+
+  if (member.preferredRole === "Field Lead" || member.preferredRole === "Policy Lead") {
+    return "Partner lead";
+  }
+
+  if (member.preferredRole === "Mentor") {
+    return "Advisor";
+  }
+
+  return "Co-investigator";
+}
+
+function piSuitability(member: TeamMember) {
+  if (member.preferredRole === "PI") {
+    return 18;
+  }
+
+  if (member.preferredRole === "Co-PI") {
+    return 14;
+  }
+
+  if (member.careerStage === "Senior" || member.careerStage === "Professor") {
+    return 12;
+  }
+
+  if (member.careerStage === "Mid-career") {
+    return 8;
+  }
+
+  return 3;
 }
 
 function missingExpertiseFor(
   opportunity: FundingOpportunity,
-  fits: TeamMemberFit[],
+  scores: TeamMemberScore[],
 ) {
-  const missing = [];
-  const joinedReasons = fits.flatMap((fit) => fit.reasons).join(" ").toLowerCase();
-
-  for (const topic of opportunity.topics.slice(0, 5)) {
-    if (!joinedReasons.includes(topic.toLowerCase())) {
-      missing.push(`Need stronger evidence for ${topic}.`);
-    }
-  }
+  const signals = scores
+    .flatMap((score) => score.positiveSignals)
+    .join(" ")
+    .toLowerCase();
+  const missing = opportunity.topics
+    .slice(0, 5)
+    .filter((topic) => !signals.includes(topic.toLowerCase()))
+    .map((topic) => `Need stronger saved team evidence for ${topic}.`);
 
   return missing.length > 0 ? missing : ["No major missing expertise detected from saved metadata."];
 }
@@ -140,7 +257,7 @@ function writingPlan(bestPi: TeamMemberFit, coInvestigators: TeamMemberFit[]) {
   ];
 }
 
-function sectionAssignments(member: TeamMember, role: TeamMemberFit["recommendedRole"]) {
+function sectionAssignments(role: TeamMemberFit["recommendedRole"]) {
   if (role === "PI") {
     return ["specific aims", "leadership plan", "institutional fit"];
   }
@@ -149,10 +266,15 @@ function sectionAssignments(member: TeamMember, role: TeamMemberFit["recommended
     return ["methods section", "analysis plan", "data quality"];
   }
 
-  return [
-    member.implementationExperience ? "implementation plan" : "technical background",
-    "letters/supporting evidence",
-  ];
+  if (role === "Partner lead") {
+    return ["implementation plan", "partner roles", "field operations"];
+  }
+
+  if (role === "Advisor") {
+    return ["mentorship plan", "governance", "review of significance"];
+  }
+
+  return ["technical background", "letters/supporting evidence"];
 }
 
 function overlap(values: string[], haystack: string) {

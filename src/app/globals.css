@@ -131,6 +131,16 @@ button {
   color: var(--teal-dark);
 }
 
+.ghost-button.danger {
+  border-color: rgb(200 79 61 / 36%);
+  color: #8a2b1e;
+}
+
+.ghost-button.danger:hover {
+  border-color: #c84f3d;
+  color: #8a2b1e;
+}
+
 .source-chip.live,
 .source-pill.live,
 .mode-dot.live {
@@ -839,6 +849,33 @@ button {
 
 .admin-list {
   padding: 18px;
+}
+
+.team-profile-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.team-profile-row > button {
+  display: grid;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.team-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.team-row-actions .open-call-link {
+  min-height: 28px;
+  margin: 0;
 }
 
 @media (max-width: 1180px) {

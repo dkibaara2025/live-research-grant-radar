@@ -187,9 +187,18 @@ export function ActionPlanPanel({
                   .map((member) => member.name)
                   .join(", ") || "Add team profiles to calculate."}
               </p>
+              <p>Team fit score: {teamRecommendation.teamStrengthScore}%</p>
+              <ol className="plan-list">
+                {[
+                  ...teamRecommendation.reasons,
+                  ...teamRecommendation.missingExpertise,
+                ].map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ol>
             </div>
           ) : (
-            <p>Add team profiles in Admin to calculate PI and co-investigator fit.</p>
+            <p>No team profiles saved yet. Add team members in Admin to enable PI and co-investigator matching.</p>
           )}
         </section>
 
