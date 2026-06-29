@@ -261,6 +261,14 @@ export function AdminConsole() {
     const payload = (await response.json()) as { error?: string };
 
     if (!response.ok) {
+      if (payload.error?.toLowerCase().includes("invalid admin key")) {
+        updateAdminKey("");
+        setStatus(
+          "Invalid admin key. The saved browser key was cleared; re-enter ADMIN_KEY at the top and try again.",
+        );
+        return;
+      }
+
       setStatus(payload.error ?? "Team member delete failed.");
       return;
     }
@@ -311,6 +319,14 @@ export function AdminConsole() {
     };
 
     if (!response.ok) {
+      if (payload.error?.toLowerCase().includes("invalid admin key")) {
+        updateAdminKey("");
+        setStatus(
+          "Invalid admin key. The saved browser key was cleared; re-enter ADMIN_KEY at the top and try again.",
+        );
+        return;
+      }
+
       setStatus(payload.error ?? "Source refresh failed.");
       return;
     }
@@ -358,7 +374,9 @@ export function AdminConsole() {
     return {
       ok: response.ok,
       message:
-        payload.issues?.[0]
+        payload.error?.toLowerCase().includes("invalid admin key")
+          ? invalidAdminKeyMessage()
+          : payload.issues?.[0]
           ? `Fix ${payload.issues[0].field || "this field"}: ${payload.issues[0].message}`
           : payload.error ?? "Saved.",
     };
@@ -385,6 +403,12 @@ export function AdminConsole() {
     } else {
       window.sessionStorage.removeItem("grantRadarAdminKey");
     }
+  }
+
+  function invalidAdminKeyMessage() {
+    updateAdminKey("");
+
+    return "Invalid admin key. The saved browser key was cleared; re-enter ADMIN_KEY at the top and save again.";
   }
 
   return (
