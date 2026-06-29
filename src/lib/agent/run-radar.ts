@@ -28,23 +28,29 @@ export async function runRadar(
       rank: index + 1,
     }));
 
-  const matches = await Promise.all(
-    scored.map(async (opportunity) => {
+  const llmMatchLimit = getLlmMatchLimit();
+  const matches = [];
+
+  for (const [index, opportunity] of scored.entries()) {
+    if (index >= llmMatchLimit) {
+      matches.push(opportunity);
+      continue;
+    }
+
       const plan = await generateGrantPlan(profile, opportunity);
 
       if (plan.warning) {
         warnings.push(plan.warning);
       }
 
-      return {
+      matches.push({
         ...opportunity,
         eligibilityNotes: plan.eligibilityNotes,
         actionPlan: plan.actionPlan,
         planSummary: plan.planSummary,
         llmProvider: plan.provider,
-      };
-    }),
-  );
+      });
+  }
 
   const durationMs = Date.now() - startedAt;
   const saveResult = await saveRadarRun(profile, matches, {
@@ -82,6 +88,16 @@ export async function runRadar(
       sourceStatuses: sourceResult.sourceStatuses,
     },
   };
+}
+
+function getLlmMatchLimit() {
+  const parsed = Number.parseInt(process.env.LLM_MAX_MATCHES ?? "1", 10);
+
+  if (Number.isNaN(parsed)) {
+    return 1;
+  }
+
+  return Math.max(0, Math.min(5, parsed));
 }
 
 function dedupeWarnings(warnings: AgentWarning[]) {

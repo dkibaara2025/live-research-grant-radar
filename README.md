@@ -41,6 +41,7 @@ Variables:
 DATABASE_URL="postgresql://USER:PASSWORD@HOST/db?sslmode=require"
 GEMINI_API_KEY=""
 GEMINI_MODEL="gemini-2.5-flash"
+LLM_MAX_MATCHES="1"
 FUNDING_FEEDS="grants-gov:research"
 RADAR_DEMO_MODE="true"
 APP_BASE_URL="http://localhost:3000"
@@ -59,6 +60,12 @@ Never commit `.env.local` or real secrets.
 Seed/demo opportunities are never presented as real funding calls.
 
 ## Funding Feeds
+
+## Gemini Rate Limits
+
+`LLM_MAX_MATCHES` controls how many ranked matches call Gemini during one radar run. Keep it at `1` on the Gemini free tier. Remaining matches use local deterministic action plans, which avoids one search creating several LLM requests and triggering 429 rate limits.
+
+If Gemini returns 429, the app shows `LLM_RATE_LIMITED` and keeps the radar usable with a deterministic fallback plan.
 
 `FUNDING_FEEDS` accepts comma, semicolon, or newline-separated entries:
 
@@ -181,6 +188,7 @@ Invoke-RestMethod "http://127.0.0.1:3000/api/history?q=climate"
 DATABASE_URL="your_neon_connection_string"
 GEMINI_API_KEY="optional_gemini_key"
 GEMINI_MODEL="gemini-2.5-flash"
+LLM_MAX_MATCHES="1"
 FUNDING_FEEDS="grants-gov:research"
 RADAR_DEMO_MODE="true"
 APP_BASE_URL="https://live-research-grant-radar.vercel.app"

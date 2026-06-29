@@ -53,10 +53,7 @@ export async function generateGrantPlan(
     );
 
     if (!response.ok) {
-      return fallbackPlan(opportunity, {
-        code: "LLM_HTTP_ERROR",
-        message: `Gemini returned ${response.status}; used deterministic fallback.`,
-      });
+      return fallbackPlan(opportunity, httpWarning(response.status));
     }
 
     const payload = (await response.json()) as GeminiResponse;
@@ -88,6 +85,29 @@ export async function generateGrantPlan(
       message: "Gemini request failed or timed out; used deterministic fallback.",
     });
   }
+}
+
+function httpWarning(status: number): AgentWarning {
+  if (status === 429) {
+    return {
+      code: "LLM_RATE_LIMITED",
+      message:
+        "Gemini rate limit or quota was reached; used deterministic fallback for the plan.",
+    };
+  }
+
+  if (status >= 500) {
+    return {
+      code: "LLM_TEMPORARILY_UNAVAILABLE",
+      message:
+        "Gemini was temporarily unavailable; used deterministic fallback for the plan.",
+    };
+  }
+
+  return {
+    code: "LLM_HTTP_ERROR",
+    message: `Gemini returned ${status}; used deterministic fallback for the plan.`,
+  };
 }
 
 function fallbackPlan(
