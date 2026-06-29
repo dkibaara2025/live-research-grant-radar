@@ -130,6 +130,7 @@ export function AdminConsole() {
   const [adminKey, setAdminKey] = useState("");
   const [status, setStatus] = useState("Loading admin console...");
   const [productionWarning, setProductionWarning] = useState<string | null>(null);
+  const [adminKeyConfigured, setAdminKeyConfigured] = useState(false);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [opportunities, setOpportunities] = useState<ManualOpportunityRow[]>([]);
   const [team, setTeam] = useState<TeamRow[]>([]);
@@ -155,6 +156,12 @@ export function AdminConsole() {
       await Promise.all([loadStats(), loadOpportunities(), loadTeam(), loadProposals()]);
     }
 
+    const savedAdminKey = window.sessionStorage.getItem("grantRadarAdminKey");
+
+    if (savedAdminKey) {
+      setAdminKey(savedAdminKey);
+    }
+
     void loadInitialData();
   }, [loadTeam]);
 
@@ -162,10 +169,12 @@ export function AdminConsole() {
     const response = await fetch("/api/admin/stats");
     const payload = (await response.json()) as {
       stats: AdminStats;
+      adminKeyConfigured: boolean;
       productionWarning: string | null;
     };
 
     setStats(payload.stats);
+    setAdminKeyConfigured(payload.adminKeyConfigured);
     setProductionWarning(payload.productionWarning);
   }
 
@@ -240,9 +249,13 @@ export function AdminConsole() {
       return;
     }
 
+    if (!canWrite()) {
+      return;
+    }
+
     const response = await fetch(`/api/team-members/${editingTeamId}`, {
       method: "DELETE",
-      headers: adminKey ? { "x-admin-key": adminKey } : {},
+      headers: adminHeaders(),
     });
     const payload = (await response.json()) as { error?: string };
 
@@ -281,10 +294,14 @@ export function AdminConsole() {
   }
 
   async function refreshSources() {
+    if (!canWrite()) {
+      return;
+    }
+
     setStatus("Refreshing configured sources...");
     const response = await fetch("/api/admin/sources", {
       method: "POST",
-      headers: adminKey ? { "x-admin-key": adminKey } : {},
+      headers: adminHeaders(),
     });
     const payload = (await response.json()) as {
       error?: string;
@@ -304,11 +321,18 @@ export function AdminConsole() {
   }
 
   async function writeJson(url: string, method: "POST" | "PATCH", body: unknown) {
+    if (!canWrite()) {
+      return {
+        ok: false,
+        message: "ADMIN_KEY is configured. Enter the admin key at the top of this page before saving.",
+      };
+    }
+
     const response = await fetch(url, {
       method,
       headers: {
         "Content-Type": "application/json",
-        ...(adminKey ? { "x-admin-key": adminKey } : {}),
+        ...adminHeaders(),
       },
       body: JSON.stringify(body),
     });
@@ -326,6 +350,29 @@ export function AdminConsole() {
     };
   }
 
+  function canWrite() {
+    if (!adminKeyConfigured || adminKey.trim()) {
+      return true;
+    }
+
+    setStatus("ADMIN_KEY is configured. Enter the admin key at the top of this page before saving.");
+    return false;
+  }
+
+  function adminHeaders(): Record<string, string> {
+    return adminKey.trim() ? { "x-admin-key": adminKey.trim() } : {};
+  }
+
+  function updateAdminKey(value: string) {
+    setAdminKey(value);
+
+    if (value.trim()) {
+      window.sessionStorage.setItem("grantRadarAdminKey", value);
+    } else {
+      window.sessionStorage.removeItem("grantRadarAdminKey");
+    }
+  }
+
   return (
     <section className="admin-console">
       <section className="panel">
@@ -334,17 +381,28 @@ export function AdminConsole() {
             <p className="eyebrow">Management</p>
             <h2>Research matching console</h2>
           </div>
-          <span className="source-chip cached">{adminKey ? "Key entered" : "No key entered"}</span>
+          <span className="source-chip cached">
+            {adminKey
+              ? "Key entered"
+              : adminKeyConfigured
+                ? "Key required"
+                : "Writes open"}
+          </span>
         </div>
         <div className="admin-body">
           {productionWarning ? <div className="notice">{productionWarning}</div> : null}
+          {adminKeyConfigured && !adminKey ? (
+            <div className="notice">
+              ADMIN_KEY is configured for production. Enter it here before saving team profiles or other admin changes.
+            </div>
+          ) : null}
           <label className="field" htmlFor="admin-key">
             <span>ADMIN_KEY</span>
             <input
               id="admin-key"
               type="password"
               value={adminKey}
-              onChange={(event) => setAdminKey(event.target.value)}
+              onChange={(event) => updateAdminKey(event.target.value)}
               placeholder="Required for writes when configured"
             />
           </label>
