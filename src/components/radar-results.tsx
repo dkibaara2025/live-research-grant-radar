@@ -1,20 +1,20 @@
-import type { AgentWarning, RankedOpportunity } from "@/lib/agent/types";
+import type { AgentWarning, DataMode, RankedOpportunity } from "@/lib/agent/types";
 
 type RadarResultsProps = {
   opportunities: RankedOpportunity[];
   selectedId: string;
-  runCount: number;
   warnings: AgentWarning[];
   isLoading: boolean;
+  dataMode: DataMode;
   onSelect: (id: string) => void;
 };
 
 export function RadarResults({
   opportunities,
   selectedId,
-  runCount,
   warnings,
   isLoading,
+  dataMode,
   onSelect,
 }: RadarResultsProps) {
   const selectedOpportunity =
@@ -28,8 +28,8 @@ export function RadarResults({
           <p className="eyebrow">Ranked matches</p>
           <h2>{opportunities.length} opportunities</h2>
         </div>
-        <span className="source-chip">
-          {isLoading ? "Running" : runCount > 0 ? "Live run" : "Seed data"}
+        <span className={`source-chip ${dataMode}`}>
+          {isLoading ? "Running" : dataMode.toUpperCase()}
         </span>
       </div>
 
@@ -80,9 +80,10 @@ export function RadarResults({
       ) : null}
 
       <div className="rationale-strip" aria-label="Selected match rationale">
-        {selectedOpportunity.rationale.map((reason) => (
-          <div className="rationale-item" key={reason}>
-            {reason}
+        {selectedOpportunity.scoreBreakdown.slice(0, 4).map((factor) => (
+          <div className={`rationale-item ${factor.signal}`} key={factor.key}>
+            <strong>{factor.label}</strong>
+            <span>{factor.explanation}</span>
           </div>
         ))}
       </div>

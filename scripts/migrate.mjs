@@ -26,7 +26,15 @@ for (const migration of migrations) {
   const contents = readFileSync(filePath, "utf8");
 
   console.log(`Applying ${migration}`);
-  await sql.query(contents);
+
+  const statements = contents
+    .split(";")
+    .map((statement) => statement.trim())
+    .filter(Boolean);
+
+  for (const statement of statements) {
+    await sql.query(statement);
+  }
 }
 
 console.log("Migrations complete.");

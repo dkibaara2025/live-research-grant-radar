@@ -1,39 +1,31 @@
 # Live Research Grant Radar
 
-Live Research Grant Radar is a small full-stack demo app that turns a research profile into ranked funding opportunities, eligibility notes, and a one-page application action plan.
+Live Research Grant Radar is a deployed Next.js app that turns a research profile into ranked funding opportunities, eligibility notes, score explanations, saved search history, and a one-page application action plan that can be exported to PDF.
 
-It is designed to be impressive in deployment rather than large in code: Next.js server routes, a lightweight agent workflow, optional Neon Postgres persistence, optional Gemini API generation, GitHub Actions CI, Vercel hosting, and a health endpoint.
+The app is designed to run on free tiers: Vercel Hobby, Neon Free Postgres, GitHub Actions, and optional Gemini Developer API.
+
+## What It Does
+
+- Accepts a research profile.
+- Pulls opportunities from configured free/public sources.
+- Uses Grants.gov public search when `FUNDING_FEEDS` includes `grants-gov` or `grants-gov:keyword`.
+- Supports generic JSON and RSS/Atom feed URLs.
+- Falls back to cached database source data if live feeds fail.
+- Falls back to clearly labelled demo seed data only when no live/cached/manual records are available.
+- Scores opportunities with factor-level explanations.
+- Saves radar runs and lets users search/reopen history.
+- Exports the selected one-page plan through browser print/save-as-PDF.
+- Provides `/admin` for manual opportunity maintenance and source refresh.
 
 ## Architecture
 
-- Frontend: Next.js App Router with React components in `src/components`
-- API: `POST /api/radar`, `GET/POST /api/opportunities`, `GET /api/health`
-- Agent: validate profile, fetch sources, score opportunities, generate plans, save results
-- Database: Neon Postgres through Drizzle ORM and checked-in SQL migrations
-- LLM: Gemini Developer API through a server-only REST call
-- Fallbacks: seed opportunities, rule-based scoring, deterministic action plans, no-secret health checks
-- CI/CD: GitHub Actions plus Vercel Git deployment
-
-## Free Tools Used
-
-- GitHub Free for repository hosting
-- GitHub Actions for CI
-- Vercel Hobby for a free `.vercel.app` deployment URL
-- Neon Free for Postgres
-- Gemini Developer API free tier for LLM generation
-
-## Account Setup
-
-Create these accounts before live deployment:
-
-| Service | Required | Free plan | Secret to copy |
-|---|---:|---|---|
-| GitHub | Yes | Free | None |
-| Vercel | Yes | Hobby | Environment variables copied from this project |
-| Neon | For persistence | Free | `DATABASE_URL` |
-| Google AI Studio | For LLM output | Free tier | `GEMINI_API_KEY` |
-
-The app still runs locally and on Vercel without Neon or Gemini. It will show warnings and use deterministic fallbacks.
+- Frontend: Next.js App Router and React components in `src/components`.
+- API: `/api/radar`, `/api/history`, `/api/opportunities`, `/api/health`, `/api/admin/*`.
+- Agent workflow: validate profile, fetch/normalize sources, score matches, generate action plans, persist run.
+- Data sources: Grants.gov adapter, JSON adapter, RSS/Atom adapter, manual database records, cache, seed fallback.
+- Database: Neon Postgres through Drizzle ORM plus checked-in idempotent SQL migrations.
+- LLM: Gemini Developer API through server-only REST calls, with deterministic fallback.
+- CI/CD: GitHub Actions plus Vercel Git deployment.
 
 ## Environment Variables
 
@@ -49,33 +41,65 @@ Variables:
 DATABASE_URL="postgresql://USER:PASSWORD@HOST/db?sslmode=require"
 GEMINI_API_KEY=""
 GEMINI_MODEL="gemini-2.5-flash"
-FUNDING_FEEDS=""
+FUNDING_FEEDS="grants-gov:research"
 RADAR_DEMO_MODE="true"
 APP_BASE_URL="http://localhost:3000"
 CRON_SECRET=""
+ADMIN_KEY=""
 ```
 
 Never commit `.env.local` or real secrets.
 
-## Local Development
+## Data Modes
 
-Install dependencies:
+- `live`: at least one configured source returned current opportunities.
+- `cached`: live sources failed or were absent, but database cache/manual opportunities were available.
+- `seed`: no configured source, no cache, and no manual records; the app shows labelled demo opportunities.
+
+Seed/demo opportunities are never presented as real funding calls.
+
+## Funding Feeds
+
+`FUNDING_FEEDS` accepts comma, semicolon, or newline-separated entries:
+
+```env
+FUNDING_FEEDS="grants-gov:climate health,https://example.org/funding.xml,https://example.org/opportunities.json"
+```
+
+Supported entries:
+
+- `grants-gov` or `grants-gov:keyword`: uses the public Grants.gov search endpoint `https://api.grants.gov/v1/api/search2`.
+- RSS/Atom URLs ending in `.xml`, `.rss`, or `.atom`.
+- JSON URLs returning an array, `{ "items": [...] }`, or `{ "opportunities": [...] }`.
+
+JSON item fields may include:
+
+```json
+{
+  "title": "Example Grant",
+  "funder": "Example Funder",
+  "url": "https://example.org/grant",
+  "deadline": "Dec 1",
+  "regionEligibility": "International",
+  "careerStageEligibility": "Early-career researchers",
+  "amount": "Up to $100k",
+  "focus": "implementation science",
+  "summary": "Short opportunity summary",
+  "description": "Longer description",
+  "eligibility": "Who can apply",
+  "tags": ["Health", "Pilot"],
+  "topics": ["health", "implementation"]
+}
+```
+
+## Local Development
 
 ```powershell
 npm install
-```
-
-Run checks:
-
-```powershell
 npm run typecheck
 npm run lint
+npm test
 npm run build
-```
-
-Start the app:
-
-```powershell
 npm run dev -- --hostname 127.0.0.1 --port 3000
 ```
 
@@ -86,50 +110,34 @@ Open `http://127.0.0.1:3000`.
 1. Create a Neon Free project.
 2. Copy the pooled Postgres connection string.
 3. Paste it into `.env.local` as `DATABASE_URL`.
-4. Paste the same value into Vercel Project Settings > Environment Variables.
-5. Run:
+4. Paste it into Vercel Project Settings > Environment Variables.
+5. Run migrations:
 
 ```powershell
 npm run db:generate
 npm run db:migrate
 ```
 
-Without `DATABASE_URL`, the app returns results but does not persist them.
+Migrations are additive/idempotent and do not require a destructive reset.
 
-## Gemini API Setup
+## Admin Panel
 
-1. Go to `https://aistudio.google.com/app/apikey`.
-2. Create a Gemini API key.
-3. Paste it into `.env.local` as `GEMINI_API_KEY`.
-4. Paste it into Vercel Project Settings > Environment Variables.
-5. Keep `GEMINI_MODEL` as `gemini-2.5-flash` unless you choose another available free-tier model.
+Open `/admin`.
 
-The key is only read inside server code. It is never exposed through `NEXT_PUBLIC_*`.
+The admin panel can:
 
-## Optional Funding Feeds
+- View manual opportunities.
+- Add a manual opportunity.
+- Edit a manual opportunity.
+- Refresh configured sources/cache.
 
-`FUNDING_FEEDS` can contain comma, semicolon, or newline-separated JSON feed URLs. Each feed should return either an array, `{ "items": [...] }`, or `{ "opportunities": [...] }`.
+Set `ADMIN_KEY` in Vercel and `.env.local` to protect admin write actions. If `ADMIN_KEY` is blank, writes are allowed and the app shows a production warning.
 
-Each item can include:
+## PDF Export
 
-```json
-{
-  "title": "Example Grant",
-  "funder": "Example Funder",
-  "url": "https://example.org/grant",
-  "deadline": "Dec 1",
-  "region": "International",
-  "amount": "Up to $100k",
-  "focus": "implementation science",
-  "summary": "Short opportunity summary",
-  "eligibility": "Who can apply",
-  "tags": ["Health", "Pilot"]
-}
-```
+Select a match and click `Export PDF` in the one-page plan panel. The browser print dialog opens with a print stylesheet for a clean one-page plan. Choose “Save as PDF.”
 
-If no feeds are configured, the app uses built-in seed opportunities.
-
-## API
+## API Examples
 
 Run radar:
 
@@ -148,90 +156,63 @@ $body = @{
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/api/radar -ContentType "application/json" -Body $body
 ```
 
-Health check:
+Health:
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:3000/api/health
 ```
 
-List saved opportunities:
+History:
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:3000/api/opportunities
+Invoke-RestMethod "http://127.0.0.1:3000/api/history?q=climate"
 ```
 
 ## Deployment
 
-1. Create a GitHub repository named `live-research-grant-radar`.
-2. Push this project:
+1. Push the repository to GitHub.
+2. Import the repo into Vercel.
+3. Use the Next.js preset.
+4. Build command: `npm run build`.
+5. Install command: `npm install`.
+6. Add environment variables:
 
-```powershell
-git remote add origin https://github.com/YOUR-USER/live-research-grant-radar.git
-git branch -M main
-git push -u origin main
+```env
+DATABASE_URL="your_neon_connection_string"
+GEMINI_API_KEY="optional_gemini_key"
+GEMINI_MODEL="gemini-2.5-flash"
+FUNDING_FEEDS="grants-gov:research"
+RADAR_DEMO_MODE="true"
+APP_BASE_URL="https://live-research-grant-radar.vercel.app"
+ADMIN_KEY="choose-a-private-admin-key"
 ```
 
-3. Go to Vercel and import the GitHub repository.
-4. Select the Next.js framework preset.
-5. Use these settings:
-
-```text
-Install command: npm install
-Build command: npm run build
-Output directory: default
-```
-
-6. Add environment variables from `.env.local`.
 7. Deploy.
-8. Open the generated free URL, such as `https://live-research-grant-radar.vercel.app`.
-9. Check `https://YOUR-APP.vercel.app/api/health`.
+8. Visit `/api/health`.
+9. Run `npm run db:migrate` locally once against the Neon database if migrations have not already been applied.
 
-## Demo Steps
-
-1. Show the GitHub repo, CI workflow, and Vercel deployment.
-2. Open the public Vercel app URL.
-3. Use the default Kenya climate-health profile or edit it live.
-4. Click `Run radar`.
-5. Show the ranked matches, warnings, persistence status, and one-page action plan.
-6. Open `/api/health` to show app, database, and LLM status.
-7. Explain that the app keeps working with free deterministic fallbacks if Neon or Gemini is not configured.
-
-## Testing Plan
-
-Manual:
-
-- Submit the default profile.
-- Shorten the profile summary and confirm validation returns an error.
-- Run without `GEMINI_API_KEY` and confirm fallback warning appears.
-- Run without `DATABASE_URL` and confirm results still display.
-- Visit `/api/health`.
-
-Automated checks:
+## Tests
 
 ```powershell
 npm run typecheck
 npm run lint
+npm test
 npm run build
 ```
 
-Deployment smoke test:
+Tests cover scoring, normalization, invalid input validation, seed fallback labelling, and PDF export title generation.
 
-```powershell
-Invoke-RestMethod https://YOUR-APP.vercel.app/api/health
-```
+## Known Limitations
 
-## Limitations
+- Grants.gov search results do not include every detail; amount and eligibility often need source verification.
+- RSS/Atom feeds vary in quality, so unknown fields are marked “Needs verification.”
+- Admin protection is intentionally lightweight and based on `ADMIN_KEY`, not full authentication.
+- Gemini output should be reviewed before acting on a funding plan.
 
-- Demo app has no authentication.
-- Built-in seed opportunities are illustrative, not official funding advice.
-- Optional live feeds currently expect simple JSON, not arbitrary web pages.
-- LLM-generated plans need human review before grant submission.
-- Persistence requires Neon configuration.
+## Roadmap
 
-## Future Improvements
-
-- Add authentication and per-user saved profiles.
-- Add scheduled funding refresh with a protected cron route.
-- Add PDF export for the one-page plan.
-- Add more official funding source adapters.
-- Add email alerts for new high-fit opportunities.
+- Scheduled source refresh.
+- More official funder-specific adapters.
+- CSV export.
+- Per-user authentication.
+- Email alerts for high-fit opportunities.

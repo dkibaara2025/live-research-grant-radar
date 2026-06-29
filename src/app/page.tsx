@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { GrantRadarShell } from "@/components/grant-radar-shell";
 
 export default function Home() {
@@ -13,9 +14,14 @@ export default function Home() {
             <p>Ranked funding matches for research teams.</p>
           </div>
         </div>
-        <div className="status-pill" aria-label="Demo status">
-          <span className="status-dot" aria-hidden="true" />
-          UI shell
+        <div className="topbar-actions">
+          <Link className="ghost-button nav-link" href="/admin">
+            Admin
+          </Link>
+          <div className="status-pill" aria-label="Application status">
+            <span className="status-dot" aria-hidden="true" />
+            Live radar
+          </div>
         </div>
       </header>
 

@@ -1,5 +1,5 @@
 import { saveRadarRun } from "@/db/repository";
-import { fetchFundingSources } from "../funding-sources/sources";
+import { fetchFundingSources } from "../funding/sources";
 import { generateGrantPlan } from "../gemini";
 import { logInfo, logWarn } from "../logger";
 import { scoreOpportunity } from "./score";
@@ -46,20 +46,25 @@ export async function runRadar(
     }),
   );
 
-  const saveResult = await saveRadarRun(profile, matches);
+  const durationMs = Date.now() - startedAt;
+  const saveResult = await saveRadarRun(profile, matches, {
+    dataMode: sourceResult.dataMode,
+    warnings: dedupeWarnings(warnings),
+    durationMs,
+    sourceStatuses: sourceResult.sourceStatuses,
+  });
 
   if (saveResult.warning) {
     warnings.push(saveResult.warning);
     logWarn("radar.run.save_skipped", { code: saveResult.warning.code });
   }
 
-  const durationMs = Date.now() - startedAt;
-
   logInfo("radar.run.completed", {
     durationMs,
     matches: matches.length,
     warnings: warnings.length,
     saved: saveResult.saved,
+    dataMode: sourceResult.dataMode,
   });
 
   return {
@@ -73,6 +78,8 @@ export async function runRadar(
       opportunityCount: sourceResult.opportunities.length,
       saved: saveResult.saved,
       demoMode: process.env.RADAR_DEMO_MODE !== "false",
+      dataMode: sourceResult.dataMode,
+      sourceStatuses: sourceResult.sourceStatuses,
     },
   };
 }

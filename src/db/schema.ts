@@ -6,9 +6,17 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import type { RankedOpportunity, ResearchProfile } from "@/lib/agent/types";
+import type {
+  AgentWarning,
+  DataMode,
+  FundingOpportunity,
+  RankedOpportunity,
+  ResearchProfile,
+  SourceStatus,
+} from "@/lib/agent/types";
 
 export const profiles = pgTable("profiles", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -59,6 +67,67 @@ export const matches = pgTable(
       .notNull(),
   },
   (table) => [index("matches_created_at_idx").on(table.createdAt)],
+);
+
+export const radarRuns = pgTable(
+  "radar_runs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    profile: jsonb("profile").$type<ResearchProfile>().notNull(),
+    rankedMatches: jsonb("ranked_matches").$type<RankedOpportunity[]>().notNull(),
+    selectedMatch: jsonb("selected_match").$type<RankedOpportunity>(),
+    dataMode: text("data_mode").$type<DataMode>().notNull(),
+    warnings: jsonb("warnings").$type<AgentWarning[]>().notNull(),
+    durationMs: integer("duration_ms").notNull(),
+    sourceStatuses: jsonb("source_statuses").$type<SourceStatus[]>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("radar_runs_created_at_idx").on(table.createdAt),
+    index("radar_runs_data_mode_idx").on(table.dataMode),
+  ],
+);
+
+export const sourceCache = pgTable(
+  "source_cache",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    sourceKey: text("source_key").notNull(),
+    label: text("label").notNull(),
+    sourceUrl: text("source_url").notNull(),
+    opportunities: jsonb("opportunities").$type<FundingOpportunity[]>().notNull(),
+    retrievedAt: timestamp("retrieved_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [uniqueIndex("source_cache_source_key_uidx").on(table.sourceKey)],
+);
+
+export const manualOpportunities = pgTable(
+  "manual_opportunities",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    title: text("title").notNull(),
+    funder: text("funder").notNull(),
+    url: text("url").notNull(),
+    deadline: text("deadline").notNull(),
+    amount: text("amount").notNull(),
+    regionEligibility: text("region_eligibility").notNull(),
+    careerStageEligibility: text("career_stage_eligibility").notNull(),
+    topics: jsonb("topics").$type<string[]>().notNull(),
+    description: text("description").notNull(),
+    raw: jsonb("raw").$type<FundingOpportunity>().notNull(),
+    isActive: text("is_active").default("true").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index("manual_opportunities_title_idx").on(table.title)],
 );
 
 export const profileRelations = relations(profiles, ({ many }) => ({

@@ -62,6 +62,12 @@ button {
   margin-bottom: 24px;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -99,7 +105,8 @@ button {
 }
 
 .status-pill,
-.source-chip {
+.source-chip,
+.ghost-button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -114,6 +121,40 @@ button {
   white-space: nowrap;
 }
 
+.ghost-button {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.ghost-button:hover {
+  border-color: var(--teal);
+  color: var(--teal-dark);
+}
+
+.source-chip.live,
+.source-pill.live,
+.mode-dot.live {
+  border-color: rgb(11 118 110 / 32%);
+  background: #eaf8f4;
+  color: var(--teal-dark);
+}
+
+.source-chip.cached,
+.source-pill.cached,
+.mode-dot.cached {
+  border-color: rgb(102 87 168 / 28%);
+  background: #f1effb;
+  color: var(--violet);
+}
+
+.source-chip.seed,
+.source-pill.seed,
+.mode-dot.seed {
+  border-color: rgb(175 117 24 / 28%);
+  background: #fff5df;
+  color: var(--gold);
+}
+
 .status-dot {
   width: 8px;
   height: 8px;
@@ -121,11 +162,64 @@ button {
   background: var(--teal);
 }
 
+.source-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 13px 16px;
+  box-shadow: 0 10px 26px rgb(31 47 39 / 7%);
+}
+
+.source-strip div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.source-strip strong {
+  color: var(--ink);
+  font-size: 0.88rem;
+}
+
+.source-strip span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.source-status-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.source-pill,
+.mode-dot {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 900;
+  padding: 0 10px;
+  text-transform: uppercase;
+}
+
 .radar-shell {
   display: grid;
   grid-template-columns: minmax(360px, 0.92fr) minmax(360px, 1fr) minmax(320px, 0.72fr);
   gap: 18px;
   align-items: start;
+}
+
+.lower-shell {
+  display: grid;
+  margin-top: 18px;
 }
 
 .panel {
@@ -147,6 +241,12 @@ button {
   background: var(--panel-soft);
 }
 
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .panel-header h2 {
   margin: 2px 0 0;
   color: var(--ink);
@@ -166,6 +266,17 @@ button {
   display: grid;
   gap: 15px;
   padding: 18px;
+}
+
+.admin-body,
+.history-body {
+  display: grid;
+  gap: 15px;
+  padding: 18px;
+}
+
+.compact-field input {
+  height: 38px;
 }
 
 .field-grid {
@@ -272,6 +383,10 @@ button {
 
 .primary-button:hover {
   background: var(--teal-dark);
+}
+
+.nav-link {
+  color: var(--ink);
 }
 
 .error-text {
@@ -419,6 +534,8 @@ button {
 }
 
 .rationale-item {
+  display: grid;
+  gap: 7px;
   min-height: 112px;
   background: var(--panel-soft);
   color: var(--ink);
@@ -427,10 +544,26 @@ button {
   padding: 14px;
 }
 
+.rationale-item strong {
+  font-size: 0.82rem;
+}
+
+.rationale-item span {
+  color: var(--muted);
+}
+
+.rationale-item.negative {
+  background: #fff7f4;
+}
+
 .plan-body {
   display: grid;
   gap: 1px;
   background: var(--line);
+}
+
+.print-title {
+  display: none;
 }
 
 .plan-block {
@@ -476,6 +609,95 @@ button {
   text-align: right;
 }
 
+.score-breakdown {
+  display: grid;
+  gap: 10px;
+}
+
+.score-factor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  padding: 10px;
+}
+
+.score-factor span {
+  display: grid;
+  gap: 4px;
+}
+
+.score-factor small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.score-factor b {
+  color: var(--teal-dark);
+}
+
+.history-list {
+  display: grid;
+  gap: 8px;
+}
+
+.history-row {
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  cursor: pointer;
+  padding: 11px 12px;
+  text-align: left;
+}
+
+.history-row:hover {
+  border-color: var(--teal);
+  background: #f5faf6;
+}
+
+.history-row span:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.history-row small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.empty-state {
+  margin: 0;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  padding: 13px;
+}
+
+.admin-shell {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.7fr) minmax(420px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.admin-list-panel {
+  grid-column: 1 / -1;
+}
+
+.admin-list {
+  padding: 18px;
+}
+
 @media (max-width: 1180px) {
   .radar-shell {
     grid-template-columns: minmax(320px, 0.9fr) minmax(360px, 1.1fr);
@@ -494,14 +716,28 @@ button {
 
   .topbar,
   .radar-shell,
+  .admin-shell,
   .field-grid,
   .rationale-strip {
     grid-template-columns: 1fr;
   }
 
+  .source-strip {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .source-status-list {
+    justify-content: flex-start;
+  }
+
   .topbar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .topbar-actions {
+    flex-wrap: wrap;
   }
 
   .brand-text h1 {
@@ -521,5 +757,55 @@ button {
     width: 46px;
     height: 34px;
     border-radius: 8px;
+  }
+}
+
+@media print {
+  body {
+    background: #ffffff;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .action-panel,
+  .action-panel * {
+    visibility: visible;
+  }
+
+  .action-panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .print-title {
+    display: block;
+    padding: 0 0 16px;
+  }
+
+  .print-title h1 {
+    margin: 0;
+    font-size: 22px;
+  }
+
+  .print-title p {
+    margin: 4px 0 0;
+    color: #555555;
+  }
+
+  .print-button,
+  .provider-chip {
+    display: none;
+  }
+
+  .plan-block,
+  .panel-header {
+    break-inside: avoid;
+    background: #ffffff;
   }
 }
