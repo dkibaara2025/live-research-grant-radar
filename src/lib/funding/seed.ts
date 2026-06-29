@@ -29,6 +29,7 @@ export const seedOpportunities: FundingOpportunity[] = [
     },
     {
       source: "Demo seed fallback",
+      sourceType: "seed",
       sourceUrl: "local-seed",
       dataMode: "seed",
       isLive: false,
@@ -60,6 +61,7 @@ export const seedOpportunities: FundingOpportunity[] = [
     },
     {
       source: "Demo seed fallback",
+      sourceType: "seed",
       sourceUrl: "local-seed",
       dataMode: "seed",
       isLive: false,
@@ -91,6 +93,7 @@ export const seedOpportunities: FundingOpportunity[] = [
     },
     {
       source: "Demo seed fallback",
+      sourceType: "seed",
       sourceUrl: "local-seed",
       dataMode: "seed",
       isLive: false,

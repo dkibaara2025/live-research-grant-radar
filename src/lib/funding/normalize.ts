@@ -1,4 +1,8 @@
-import type { DataMode, FundingOpportunity } from "@/lib/agent/types";
+import type {
+  DataMode,
+  FundingOpportunity,
+  FundingSourceType,
+} from "@/lib/agent/types";
 
 export type OpportunityInput = {
   id?: string;
@@ -6,12 +10,19 @@ export type OpportunityInput = {
   title: string;
   shortName?: string;
   funder?: string;
+  funderType?: string;
   source?: string;
+  sourceName?: string;
+  sourceType?: FundingSourceType;
   sourceUrl?: string;
+  callUrl?: string;
+  applicationUrl?: string;
   url?: string;
   deadline?: string;
   region?: string;
   regionEligibility?: string;
+  countryEligibility?: string;
+  institutionEligibility?: string;
   careerStageEligibility?: string;
   amount?: string;
   focus?: string;
@@ -23,11 +34,13 @@ export type OpportunityInput = {
   retrievedAt?: string;
   isLive?: boolean;
   dataMode?: DataMode;
+  needsVerification?: string[];
   baseScore?: number;
 };
 
 export type NormalizeContext = {
   source: string;
+  sourceType?: FundingSourceType;
   sourceUrl: string;
   dataMode: DataMode;
   isLive: boolean;
@@ -44,19 +57,41 @@ export function normalizeOpportunity(
   const topics = compactStrings(input.topics ?? input.tags ?? []);
   const description = cleanText(input.description ?? input.summary ?? input.focus ?? input.title);
   const summary = cleanText(input.summary ?? description);
+  const callUrl = cleanUrl(input.callUrl ?? input.url ?? input.sourceUrl ?? context.sourceUrl);
+  const applicationUrl = cleanUrl(input.applicationUrl ?? callUrl);
+  const baseNeedsVerification = compactStrings(input.needsVerification ?? []);
+
+  if (!callUrl || callUrl === "missing") {
+    baseNeedsVerification.push("Call link missing - needs verification.");
+  }
+
+  if (!input.deadline || input.deadline.toLowerCase().includes("verification")) {
+    baseNeedsVerification.push("Deadline needs verification.");
+  }
+
+  if (!input.amount || input.amount.toLowerCase().includes("verification")) {
+    baseNeedsVerification.push("Funding amount needs verification.");
+  }
 
   return {
     id: `${context.dataMode}-${slugify(context.source)}-${slugify(externalId)}`,
     externalId,
     source: input.source ?? context.source,
+    sourceName: input.sourceName ?? input.source ?? context.source,
+    sourceType: input.sourceType ?? context.sourceType ?? inferSourceType(input.source ?? context.source),
     sourceUrl: input.sourceUrl ?? context.sourceUrl,
+    callUrl: callUrl || "missing",
+    applicationUrl: applicationUrl || callUrl || "missing",
     title: cleanText(input.title),
     shortName: cleanText(input.shortName ?? input.title),
     funder: cleanText(input.funder ?? "Unknown funder"),
-    url: input.url ?? context.sourceUrl,
+    funderType: cleanText(input.funderType ?? inferFunderType(input.funder ?? input.source ?? context.source)),
+    url: callUrl || input.url || context.sourceUrl,
     deadline: cleanText(input.deadline ?? "Needs verification"),
     region: cleanText(input.region ?? input.regionEligibility ?? "Needs verification"),
     regionEligibility: cleanText(input.regionEligibility ?? input.region ?? "Needs verification"),
+    countryEligibility: cleanText(input.countryEligibility ?? input.regionEligibility ?? "Needs verification"),
+    institutionEligibility: cleanText(input.institutionEligibility ?? "Needs verification"),
     careerStageEligibility: cleanText(
       input.careerStageEligibility ?? "Needs verification",
     ),
@@ -70,6 +105,7 @@ export function normalizeOpportunity(
     retrievedAt,
     isLive: input.isLive ?? context.isLive,
     dataMode: input.dataMode ?? context.dataMode,
+    needsVerification: Array.from(new Set(baseNeedsVerification)),
     baseScore: input.baseScore,
   };
 }
@@ -88,6 +124,64 @@ export function slugify(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 96);
+}
+
+function cleanUrl(value: string | undefined) {
+  const cleaned = value?.trim();
+
+  if (!cleaned) {
+    return "";
+  }
+
+  return cleaned;
+}
+
+function inferSourceType(source: string): FundingSourceType {
+  const normalized = source.toLowerCase();
+
+  if (normalized.includes("grants.gov") || normalized.includes("government")) {
+    return "government";
+  }
+
+  if (normalized.includes("foundation")) {
+    return "foundation";
+  }
+
+  if (normalized.includes("university")) {
+    return "university";
+  }
+
+  if (normalized.includes("manual")) {
+    return "manual";
+  }
+
+  if (normalized.includes("seed") || normalized.includes("demo")) {
+    return "seed";
+  }
+
+  return "other";
+}
+
+function inferFunderType(funder: string) {
+  const normalized = funder.toLowerCase();
+
+  if (normalized.includes("foundation")) {
+    return "foundation";
+  }
+
+  if (
+    normalized.includes("department") ||
+    normalized.includes("agency") ||
+    normalized.includes("national science foundation")
+  ) {
+    return "government";
+  }
+
+  if (normalized.includes("university")) {
+    return "university";
+  }
+
+  return "needs verification";
 }
 
 function stableId(value: string) {

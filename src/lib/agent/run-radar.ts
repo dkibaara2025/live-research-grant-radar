@@ -1,4 +1,6 @@
-import { saveRadarRun } from "@/db/repository";
+import { listProposals, listTeamMembers, saveRadarRun } from "@/db/repository";
+import { recommendProposal } from "@/lib/proposals/match";
+import { recommendTeam } from "@/lib/team/match";
 import { fetchFundingSources } from "../funding/sources";
 import { generateGrantPlan } from "../gemini";
 import { logInfo, logWarn } from "../logger";
@@ -18,6 +20,10 @@ export async function runRadar(
 
   const sourceResult = await fetchFundingSources();
   warnings.push(...sourceResult.warnings);
+  const [teamMembers, proposals] = await Promise.all([
+    listTeamMembers(),
+    listProposals(),
+  ]);
 
   const scored = sourceResult.opportunities
     .map((opportunity) => scoreOpportunity(profile, opportunity, 0))
@@ -32,24 +38,37 @@ export async function runRadar(
   const matches = [];
 
   for (const [index, opportunity] of scored.entries()) {
+    const teamRecommendation = recommendTeam(opportunity, teamMembers);
+    const proposalRecommendation = recommendProposal(
+      opportunity,
+      proposals,
+      teamRecommendation,
+    );
+
     if (index >= llmMatchLimit) {
-      matches.push(opportunity);
+      matches.push({
+        ...opportunity,
+        teamRecommendation,
+        proposalRecommendation,
+      });
       continue;
     }
 
-      const plan = await generateGrantPlan(profile, opportunity);
+    const plan = await generateGrantPlan(profile, opportunity);
 
-      if (plan.warning) {
-        warnings.push(plan.warning);
-      }
+    if (plan.warning) {
+      warnings.push(plan.warning);
+    }
 
-      matches.push({
-        ...opportunity,
-        eligibilityNotes: plan.eligibilityNotes,
-        actionPlan: plan.actionPlan,
-        planSummary: plan.planSummary,
-        llmProvider: plan.provider,
-      });
+    matches.push({
+      ...opportunity,
+      eligibilityNotes: plan.eligibilityNotes,
+      actionPlan: plan.actionPlan,
+      planSummary: plan.planSummary,
+      llmProvider: plan.provider,
+      teamRecommendation,
+      proposalRecommendation,
+    });
   }
 
   const durationMs = Date.now() - startedAt;

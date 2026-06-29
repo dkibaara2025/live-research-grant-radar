@@ -33,14 +33,35 @@ export const rankedOpportunitySchema = z.object({
   id: z.string().min(1),
   externalId: z.string().min(1),
   source: z.string().min(1),
+  sourceName: z.string().min(1),
+  sourceType: z.enum([
+    "government",
+    "foundation",
+    "university",
+    "ngo",
+    "multilateral",
+    "research-council",
+    "fellowship",
+    "innovation",
+    "manual",
+    "rss",
+    "json",
+    "seed",
+    "other",
+  ]),
   sourceUrl: z.string().min(1),
+  callUrl: z.string().min(1),
+  applicationUrl: z.string().min(1),
   title: z.string().min(1),
   shortName: z.string().min(1),
   funder: z.string().min(1),
+  funderType: z.string().min(1),
   url: z.string().url(),
   deadline: z.string().min(1),
   region: z.string().min(1),
   regionEligibility: z.string().min(1),
+  countryEligibility: z.string().min(1),
+  institutionEligibility: z.string().min(1),
   careerStageEligibility: z.string().min(1),
   amount: z.string().min(1),
   focus: z.string().min(1),
@@ -52,6 +73,7 @@ export const rankedOpportunitySchema = z.object({
   retrievedAt: z.string().min(1),
   isLive: z.boolean(),
   dataMode: z.enum(["live", "cached", "seed"]),
+  needsVerification: z.array(z.string()),
   baseScore: z.number().optional(),
   rank: z.number().int().positive(),
   score: z.number().int().min(0).max(100),
@@ -76,12 +98,14 @@ export const rankedOpportunitySchema = z.object({
   rationale: z.array(z.string()),
   positiveSignals: z.array(z.string()),
   negativeSignals: z.array(z.string()),
-  needsVerification: z.array(z.string()),
   eligibilityNotes: z.string().min(1),
   actionPlan: z.array(z.string()),
   planSummary: z.string().min(1),
   topMatchReason: z.string().min(1),
   llmProvider: z.enum(["gemini", "fallback"]),
+  teamRecommendation: z.any(),
+  proposalRecommendation: z.any(),
+  nextSevenDayPlan: z.array(z.string()),
 });
 
 export const saveOpportunityRequestSchema = z.object({
@@ -92,13 +116,57 @@ export const saveOpportunityRequestSchema = z.object({
 export const manualOpportunitySchema = z.object({
   title: z.string().trim().min(3).max(240),
   funder: z.string().trim().min(2).max(180),
-  url: z.string().trim().url(),
+  callUrl: z.string().trim().url("Original call link must be a valid URL."),
+  applicationUrl: z.string().trim().url().optional().or(z.literal("")),
+  funderType: z.string().trim().min(2).max(120),
   deadline: z.string().trim().min(2).max(120),
   amount: z.string().trim().min(2).max(120),
   regionEligibility: z.string().trim().min(2).max(300),
   careerStageEligibility: z.string().trim().min(2).max(300),
   topics: z.array(z.string().trim().min(1)).min(1).max(12),
   description: z.string().trim().min(20).max(2000),
+});
+
+const commaList = z.union([z.array(z.string()), z.string()]).transform((value) =>
+  Array.isArray(value)
+    ? value.map((item) => item.trim()).filter(Boolean)
+    : value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean),
+);
+
+export const teamMemberSchema = z.object({
+  name: z.string().trim().min(2).max(160),
+  role: z.string().trim().min(2).max(120),
+  email: z.string().trim().email().optional().or(z.literal("")),
+  scholarUrl: z.string().trim().url().optional().or(z.literal("")),
+  affiliation: z.string().trim().max(180).optional().or(z.literal("")),
+  expertise: commaList,
+  methods: commaList,
+  geographies: commaList,
+  careerStage: z.string().trim().min(2).max(120),
+  leadershipStrength: z.string().trim().min(2).max(300),
+  publicationHighlights: z.string().trim().min(2).max(1200),
+  implementationExperience: z.string().trim().min(2).max(1200),
+  availability: z.string().trim().min(2).max(120),
+});
+
+export const proposalSchema = z.object({
+  title: z.string().trim().min(3).max(240),
+  projectArea: z.string().trim().min(2).max(180),
+  abstract: z.string().trim().min(20).max(4000),
+  fullText: z.string().trim().min(20).max(60000),
+  funderTarget: z.string().trim().max(180).optional().or(z.literal("")),
+  previousCall: z.string().trim().max(240).optional().or(z.literal("")),
+  status: z.enum(["draft", "submitted", "funded", "rejected", "concept note", "full proposal"]),
+  year: z.coerce.number().int().min(1990).max(2100),
+  piTeam: z.string().trim().max(300).optional().or(z.literal("")),
+  keywords: commaList,
+  methods: commaList,
+  geography: z.string().trim().min(2).max(180),
+  budgetRange: z.string().trim().min(2).max(120),
+  fileName: z.string().trim().max(240).optional().or(z.literal("")),
 });
 
 export function formatValidationError(error: z.ZodError) {

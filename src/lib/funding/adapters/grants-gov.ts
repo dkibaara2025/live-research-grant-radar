@@ -68,6 +68,14 @@ export async function fetchGrantsGov(keyword = "research"): Promise<GrantsGovRes
             title: hit.title ?? "Untitled Grants.gov opportunity",
             shortName: hit.title,
             funder: hit.agency ?? hit.agencyCode ?? "Grants.gov agency",
+            sourceName: "Grants.gov",
+            sourceType: "government",
+            callUrl: hit.id
+              ? `${GRANTS_GOV_DETAIL_BASE}${hit.id}`
+              : "https://www.grants.gov/search-results",
+            applicationUrl: hit.id
+              ? `${GRANTS_GOV_DETAIL_BASE}${hit.id}`
+              : "https://www.grants.gov/search-results",
             url: hit.id
               ? `${GRANTS_GOV_DETAIL_BASE}${hit.id}`
               : "https://www.grants.gov/search-results",
@@ -95,6 +103,7 @@ export async function fetchGrantsGov(keyword = "research"): Promise<GrantsGovRes
           },
           {
             source: "Grants.gov",
+            sourceType: "government",
             sourceUrl: GRANTS_GOV_SEARCH_URL,
             dataMode: "live",
             isLive: true,

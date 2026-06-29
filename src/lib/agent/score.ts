@@ -83,6 +83,32 @@ export function scoreOpportunity(
       positiveSignals[0] ??
       "This opportunity appears to be one of the stronger available matches, but eligibility needs verification.",
     llmProvider: "fallback",
+    teamRecommendation: {
+      coInvestigators: [],
+      missingExpertise: ["Add team profiles in Admin to calculate team fit."],
+      teamStrengthScore: 0,
+      reasons: ["No saved team metadata was available for this run."],
+      risks: ["PI/co-investigator suitability needs manual review."],
+      writingPlan: [],
+      letterSupportPlan: [],
+      dataAvailable: false,
+    },
+    proposalRecommendation: {
+      fitScore: 0,
+      whyFits: ["No saved proposals were available for proposal matching."],
+      adaptationChecklist: [
+        {
+          action: "Add",
+          item: "Save previous proposals in the Proposal Library to enable adaptation matching.",
+        },
+      ],
+      reusableSections: [],
+      rewriteSections: [],
+      newEvidenceNeeded: [],
+      suggestedPackage: [],
+      dataAvailable: false,
+    },
+    nextSevenDayPlan: nextSevenDayPlan(opportunity),
   };
 }
 
@@ -308,4 +334,16 @@ function verificationItems(opportunity: FundingOpportunity) {
   return items.length > 0
     ? items
     : ["Confirm sponsor, eligibility, and submission package against the source."];
+}
+
+function nextSevenDayPlan(opportunity: FundingOpportunity) {
+  return [
+    "Day 1: Open the original call page and verify eligibility, deadline, budget, and submission route.",
+    "Day 2: Confirm PI and co-investigator roles using saved team metadata.",
+    "Day 3: Select the closest existing proposal or create a concept note outline.",
+    "Day 4: Rewrite objectives and impact language for the funder priority.",
+    "Day 5: Draft budget assumptions and partner/support letter requests.",
+    "Day 6: Review risks, missing evidence, and compliance requirements.",
+    `Day 7: Prepare a go/no-go decision for ${opportunity.shortName}.`,
+  ];
 }

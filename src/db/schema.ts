@@ -16,6 +16,8 @@ import type {
   RankedOpportunity,
   ResearchProfile,
   SourceStatus,
+  TeamMember,
+  ProposalRecord,
 } from "@/lib/agent/types";
 
 export const profiles = pgTable("profiles", {
@@ -36,6 +38,10 @@ export const opportunities = pgTable(
     title: text("title").notNull(),
     funder: text("funder").notNull(),
     url: text("url").notNull(),
+    sourceName: text("source_name").default("Unknown source").notNull(),
+    sourceType: text("source_type").default("other").notNull(),
+    callUrl: text("call_url").default("missing").notNull(),
+    applicationUrl: text("application_url").default("missing").notNull(),
     deadline: text("deadline").notNull(),
     summary: text("summary").notNull(),
     eligibility: text("eligibility").notNull(),
@@ -112,6 +118,9 @@ export const manualOpportunities = pgTable(
     title: text("title").notNull(),
     funder: text("funder").notNull(),
     url: text("url").notNull(),
+    callUrl: text("call_url").default("missing").notNull(),
+    applicationUrl: text("application_url").default("missing").notNull(),
+    funderType: text("funder_type").default("needs verification").notNull(),
     deadline: text("deadline").notNull(),
     amount: text("amount").notNull(),
     regionEligibility: text("region_eligibility").notNull(),
@@ -128,6 +137,66 @@ export const manualOpportunities = pgTable(
       .notNull(),
   },
   (table) => [index("manual_opportunities_title_idx").on(table.title)],
+);
+
+export const teamMembers = pgTable(
+  "team_members",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: text("name").notNull(),
+    role: text("role").notNull(),
+    email: text("email"),
+    scholarUrl: text("scholar_url"),
+    affiliation: text("affiliation"),
+    expertise: jsonb("expertise").$type<string[]>().notNull(),
+    methods: jsonb("methods").$type<string[]>().notNull(),
+    geographies: jsonb("geographies").$type<string[]>().notNull(),
+    careerStage: text("career_stage").notNull(),
+    leadershipStrength: text("leadership_strength").notNull(),
+    publicationHighlights: text("publication_highlights").notNull(),
+    implementationExperience: text("implementation_experience").notNull(),
+    availability: text("availability").notNull(),
+    raw: jsonb("raw").$type<TeamMember>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index("team_members_name_idx").on(table.name)],
+);
+
+export const proposals = pgTable(
+  "proposals",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    title: text("title").notNull(),
+    projectArea: text("project_area").notNull(),
+    abstract: text("abstract").notNull(),
+    fullText: text("full_text").notNull(),
+    funderTarget: text("funder_target"),
+    previousCall: text("previous_call"),
+    status: text("status").notNull(),
+    year: integer("year").notNull(),
+    piTeam: text("pi_team"),
+    keywords: jsonb("keywords").$type<string[]>().notNull(),
+    methods: jsonb("methods").$type<string[]>().notNull(),
+    geography: text("geography").notNull(),
+    budgetRange: text("budget_range").notNull(),
+    fileName: text("file_name"),
+    raw: jsonb("raw").$type<ProposalRecord>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("proposals_title_idx").on(table.title),
+    index("proposals_status_idx").on(table.status),
+  ],
 );
 
 export const profileRelations = relations(profiles, ({ many }) => ({

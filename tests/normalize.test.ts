@@ -22,5 +22,27 @@ test("normalizeOpportunity marks live source metadata correctly", () => {
   assert.equal(opportunity.isLive, true);
   assert.equal(opportunity.dataMode, "live");
   assert.equal(opportunity.sourceUrl, "https://example.org/feed.json");
+  assert.equal(opportunity.callUrl, "https://example.org/call");
   assert.deepEqual(opportunity.topics, ["research", "health"]);
+});
+
+test("normalizeOpportunity labels missing call link for verification", () => {
+  const opportunity = normalizeOpportunity(
+    {
+      title: "Call With Missing Link",
+    },
+    {
+      source: "Manual import",
+      sourceUrl: "",
+      dataMode: "cached",
+      isLive: false,
+    },
+  );
+
+  assert.equal(opportunity.callUrl, "missing");
+  assert.ok(
+    opportunity.needsVerification.some((item) =>
+      item.toLowerCase().includes("call link"),
+    ),
+  );
 });

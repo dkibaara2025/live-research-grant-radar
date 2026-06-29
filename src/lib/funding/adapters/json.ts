@@ -60,6 +60,9 @@ export async function fetchJsonFeed(url: string): Promise<FundingOpportunity[]> 
         ...item,
         externalId: item.externalId ?? item.id ?? `${url}-${index}`,
         sourceUrl: item.sourceUrl ?? url,
+        callUrl: item.url,
+        applicationUrl: item.url,
+        sourceType: "json",
         retrievedAt,
         isLive: true,
         dataMode: "live",
@@ -67,6 +70,7 @@ export async function fetchJsonFeed(url: string): Promise<FundingOpportunity[]> 
       },
       {
         source: item.source ?? url,
+        sourceType: "json",
         sourceUrl: url,
         dataMode: "live",
         isLive: true,

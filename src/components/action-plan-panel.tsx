@@ -14,6 +14,31 @@ export function ActionPlanPanel({
   dataMode,
   generatedAt,
 }: ActionPlanPanelProps) {
+  const teamRecommendation = opportunity.teamRecommendation ?? {
+    coInvestigators: [],
+    missingExpertise: ["Add team profiles in Admin to calculate team fit."],
+    teamStrengthScore: 0,
+    reasons: [],
+    risks: [],
+    writingPlan: [],
+    letterSupportPlan: [],
+    dataAvailable: false,
+  };
+  const proposalRecommendation = opportunity.proposalRecommendation ?? {
+    fitScore: 0,
+    whyFits: [],
+    adaptationChecklist: [],
+    reusableSections: [],
+    rewriteSections: [],
+    newEvidenceNeeded: [],
+    suggestedPackage: [],
+    dataAvailable: false,
+  };
+  const nextSevenDayPlan =
+    opportunity.nextSevenDayPlan?.length > 0
+      ? opportunity.nextSevenDayPlan
+      : opportunity.actionPlan;
+
   function exportPdf() {
     const originalTitle = document.title;
 
@@ -50,6 +75,55 @@ export function ActionPlanPanel({
         <section className="plan-block">
           <h3>Plan summary</h3>
           <p>{opportunity.planSummary}</p>
+        </section>
+
+        <section className="plan-block">
+          <h3>Source and links</h3>
+          <div className="source-details">
+            <span>Source</span>
+            <strong>
+              {opportunity.sourceName} ({opportunity.sourceType})
+            </strong>
+            <span>Source URL</span>
+            {opportunity.sourceUrl ? (
+              <a
+                className="plain-link"
+                href={opportunity.sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {opportunity.sourceUrl}
+              </a>
+            ) : (
+              <strong>Needs verification</strong>
+            )}
+            <span>Original call</span>
+            {opportunity.callUrl && opportunity.callUrl !== "missing" ? (
+              <a
+                className="plain-link"
+                href={opportunity.callUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {opportunity.callUrl}
+              </a>
+            ) : (
+              <strong>Call link missing - needs verification</strong>
+            )}
+            <span>Application</span>
+            {opportunity.applicationUrl && opportunity.applicationUrl !== "missing" ? (
+              <a
+                className="plain-link"
+                href={opportunity.applicationUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {opportunity.applicationUrl}
+              </a>
+            ) : (
+              <strong>Use original call page or verify submission route.</strong>
+            )}
+          </div>
         </section>
 
         <section className="plan-block">
@@ -98,6 +172,57 @@ export function ActionPlanPanel({
           </ol>
         </section>
 
+        <section className="plan-block">
+          <h3>Recommended team</h3>
+          {teamRecommendation.bestPi ? (
+            <div className="recommendation-list">
+              <p>
+                Recommended PI:{" "}
+                <strong>{teamRecommendation.bestPi.name}</strong>{" "}
+                ({teamRecommendation.bestPi.fitScore}% fit)
+              </p>
+              <p>
+                Co-investigators:{" "}
+                {teamRecommendation.coInvestigators
+                  .map((member) => member.name)
+                  .join(", ") || "Add team profiles to calculate."}
+              </p>
+            </div>
+          ) : (
+            <p>Add team profiles in Admin to calculate PI and co-investigator fit.</p>
+          )}
+        </section>
+
+        <section className="plan-block">
+          <h3>Best proposal to adapt</h3>
+          {proposalRecommendation.bestProposal ? (
+            <div className="recommendation-list">
+              <p>
+                <strong>{proposalRecommendation.bestProposal.title}</strong>{" "}
+                ({proposalRecommendation.fitScore}% fit)
+              </p>
+              <ol className="plan-list">
+                {proposalRecommendation.adaptationChecklist.map((item) => (
+                  <li key={`${item.action}-${item.item}`}>
+                    <strong>{item.action}:</strong> {item.item}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ) : (
+            <p>Save previous proposals in Admin to calculate adaptation recommendations.</p>
+          )}
+        </section>
+
+        <section className="plan-block">
+          <h3>Next 7-day action plan</h3>
+          <ol className="plan-list">
+            {nextSevenDayPlan.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ol>
+        </section>
+
         <section className="plan-block compact">
           <h3>Package</h3>
           <div className="package-grid">
@@ -117,7 +242,9 @@ export function ActionPlanPanel({
         <section className="plan-block">
           <h3>Needs verification</h3>
           <ol className="plan-list">
-            {opportunity.needsVerification.map((item) => (
+            {(opportunity.needsVerification ?? [
+              "Eligibility, deadline, and call link need verification.",
+            ]).map((item) => (
               <li key={item}>{item}</li>
             ))}
           </ol>

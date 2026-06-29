@@ -37,33 +37,70 @@ export function RadarResults({
         {opportunities.map((opportunity) => {
           const isSelected = opportunity.id === selectedId;
 
+          const hasCallLink =
+            opportunity.callUrl && opportunity.callUrl !== "missing";
+
           return (
-            <button
+            <div
               className={`result-row${isSelected ? " selected" : ""}`}
               key={opportunity.id}
-              type="button"
-              onClick={() => onSelect(opportunity.id)}
-              aria-pressed={isSelected}
             >
-              <span className="rank">#{opportunity.rank}</span>
-              <span className="result-copy">
-                <span className="result-title">{opportunity.title}</span>
-                <span className="result-meta">
-                  {opportunity.funder} / {opportunity.deadline} /{" "}
-                  {opportunity.amount}
+              <button
+                className="result-select"
+                type="button"
+                onClick={() => onSelect(opportunity.id)}
+                aria-pressed={isSelected}
+              >
+                <span className="rank">#{opportunity.rank}</span>
+                <span className="result-copy">
+                  <span className="result-title">{opportunity.title}</span>
+                  <span className="result-meta">
+                    {opportunity.funder} / {opportunity.deadline} /{" "}
+                    {opportunity.amount}
+                  </span>
+                  <span className="result-source">
+                    {opportunity.sourceName} / {opportunity.sourceType}
+                    {opportunity.sourceUrl ? ` / ${opportunity.sourceUrl}` : ""}
+                  </span>
+                  <span className="tag-row">
+                    {opportunity.tags.map((tag) => (
+                      <span className="tag" key={tag}>
+                        {tag}
+                      </span>
+                    ))}
+                  </span>
                 </span>
-                <span className="tag-row">
-                  {opportunity.tags.map((tag) => (
-                    <span className="tag" key={tag}>
-                      {tag}
-                    </span>
-                  ))}
+                <span className="fit-score" aria-label={`Fit score ${opportunity.score}%`}>
+                  {opportunity.score}
                 </span>
-              </span>
-              <span className="fit-score" aria-label={`Fit score ${opportunity.score}%`}>
-                {opportunity.score}
-              </span>
-            </button>
+              </button>
+              {hasCallLink ? (
+                <a
+                  className="open-call-link"
+                  href={opportunity.callUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open call
+                </a>
+              ) : (
+                <span className="missing-call-link">
+                  Call link missing - needs verification
+                </span>
+              )}
+              {opportunity.applicationUrl &&
+              opportunity.applicationUrl !== "missing" &&
+              opportunity.applicationUrl !== opportunity.callUrl ? (
+                <a
+                  className="open-call-link secondary"
+                  href={opportunity.applicationUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Apply
+                </a>
+              ) : null}
+            </div>
           );
         })}
       </div>
@@ -80,7 +117,7 @@ export function RadarResults({
       ) : null}
 
       <div className="rationale-strip" aria-label="Selected match rationale">
-        {selectedOpportunity.scoreBreakdown.slice(0, 4).map((factor) => (
+        {(selectedOpportunity.scoreBreakdown ?? []).slice(0, 4).map((factor) => (
           <div className={`rationale-item ${factor.signal}`} key={factor.key}>
             <strong>{factor.label}</strong>
             <span>{factor.explanation}</span>
