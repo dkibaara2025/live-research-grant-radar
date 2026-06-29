@@ -216,6 +216,7 @@ export function AdminConsole() {
   }
 
   async function saveTeamMember() {
+    setStatus("Saving team member...");
     const payload = {
       ...teamForm,
       expertiseKeywords: splitList(teamForm.expertiseKeywords),
@@ -240,8 +241,8 @@ export function AdminConsole() {
 
     setTeamForm(emptyTeam);
     setEditingTeamId(null);
-    setStatus("Team member saved.");
     await Promise.all([loadTeam(), loadStats()]);
+    setStatus("Team member saved. It now appears in Saved Records below.");
   }
 
   async function deleteCurrentTeamMember() {
@@ -328,24 +329,37 @@ export function AdminConsole() {
       };
     }
 
-    const response = await fetch(url, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        ...adminHeaders(),
-      },
-      body: JSON.stringify(body),
-    });
-    const payload = (await response.json()) as {
+    let response: Response;
+    let payload: {
       error?: string;
       issues?: Array<{ field: string; message: string }>;
     };
+
+    try {
+      response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          ...adminHeaders(),
+        },
+        body: JSON.stringify(body),
+      });
+      payload = (await response.json()) as {
+        error?: string;
+        issues?: Array<{ field: string; message: string }>;
+      };
+    } catch {
+      return {
+        ok: false,
+        message: "Save failed before reaching the server. Check your connection and try again.",
+      };
+    }
 
     return {
       ok: response.ok,
       message:
         payload.issues?.[0]
-          ? `${payload.issues[0].field}: ${payload.issues[0].message}`
+          ? `Fix ${payload.issues[0].field || "this field"}: ${payload.issues[0].message}`
           : payload.error ?? "Saved.",
     };
   }
@@ -460,6 +474,7 @@ export function AdminConsole() {
           items={team}
           editingId={editingTeamId}
           search={teamSearch}
+          status={status}
           onFormChange={setTeamForm}
           onSearchChange={(value) => {
             setTeamSearch(value);
@@ -590,6 +605,7 @@ function TeamSection(props: {
   items: TeamRow[];
   editingId: string | null;
   search: string;
+  status: string;
   onFormChange: (form: typeof emptyTeam) => void;
   onSearchChange: (value: string) => void;
   onSave: () => void;
@@ -651,6 +667,7 @@ function TeamSection(props: {
           <TextAreaField form={props.form} field="publicationSummary" label="Publication summary" onChange={props.onFormChange} />
           <TextAreaField form={props.form} field="selectedPublications" label="Selected publications" onChange={props.onFormChange} />
           <TextAreaField form={props.form} field="notes" label="Notes" onChange={props.onFormChange} />
+          <div className="notice team-save-status">{props.status}</div>
           <div className="actions">
             <button className="ghost-button" type="button" onClick={props.onClear}>
               Clear

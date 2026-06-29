@@ -138,9 +138,37 @@ const commaList = z.union([z.array(z.string()), z.string()]).transform((value) =
 
 const optionalNonNegativeInt = (max: number) =>
   z.preprocess(
-    (value) => (value === "" || value === null ? undefined : value),
+    (value) => {
+      if (value === "" || value === null || value === undefined) {
+        return undefined;
+      }
+
+      if (typeof value === "string") {
+        return value.replace(/,/g, "");
+      }
+
+      return value;
+    },
     z.coerce.number().int().min(0).max(max).optional(),
   );
+
+const optionalUrl = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `https://${trimmed}`;
+}, z.string().url().optional().or(z.literal("")));
 
 export const teamMemberSchema = z.object({
   fullName: z.string().trim().min(2, "Full name is required.").max(160),
@@ -160,9 +188,9 @@ export const teamMemberSchema = z.object({
   country: z.string().trim().max(120).optional().or(z.literal("")),
   region: z.string().trim().max(120).optional().or(z.literal("")),
   email: z.string().trim().email().optional().or(z.literal("")),
-  googleScholarUrl: z.string().trim().url().optional().or(z.literal("")),
-  orcidUrl: z.string().trim().url().optional().or(z.literal("")),
-  personalWebsiteUrl: z.string().trim().url().optional().or(z.literal("")),
+  googleScholarUrl: optionalUrl,
+  orcidUrl: optionalUrl,
+  personalWebsiteUrl: optionalUrl,
   expertiseKeywords: commaList,
   domainExpertise: commaList,
   methodsExpertise: commaList,
